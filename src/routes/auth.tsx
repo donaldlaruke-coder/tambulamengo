@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import crest from "@/assets/mengo-crest.png";
+import crest from "@/assets/mengo-badge.jpg.asset.json";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Staff sign in — Tambula Mengo" }, { name: "robots", content: "noindex" }] }),
@@ -50,7 +50,7 @@ function AuthPage() {
   return (
     <div className="container-page max-w-md py-16">
       <div className="text-center mb-6">
-        <img src={crest} width={64} height={64} className="mx-auto h-16 w-16" alt="" />
+        <img src={crest.url} width={72} height={72} className="mx-auto h-18 w-18 rounded-full object-cover ring-2 ring-gold/60" alt="" />
         <h1 className="mt-3 text-2xl font-serif font-bold text-primary">Staff sign in</h1>
         <p className="text-sm text-muted-foreground">Mengo Senior School administrators only.</p>
       </div>

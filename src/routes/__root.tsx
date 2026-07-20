@@ -12,7 +12,7 @@ import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import crest from "../assets/mengo-crest.png";
+import crest from "../assets/mengo-badge.jpg.asset.json";
 
 function NotFoundComponent() {
   return (
@@ -142,7 +142,7 @@ function SiteHeader() {
     <header className="border-b border-border bg-background/90 backdrop-blur sticky top-0 z-40">
       <div className="container-page flex items-center justify-between py-3">
         <Link to="/" className="flex items-center gap-3">
-          <img src={crest} alt="Mengo Senior School crest" width={40} height={40} className="h-10 w-10" />
+          <img src={crest.url} alt="Mengo Senior School crest" width={40} height={40} className="h-10 w-10 rounded-full object-cover" />
           <div className="leading-tight">
             <div className="font-serif text-lg font-bold text-primary">Tambula Mengo</div>
             <div className="text-[11px] uppercase tracking-widest text-muted-foreground">Mengo Senior School</div>
@@ -166,7 +166,7 @@ function SiteFooter() {
       <div className="container-page py-10 grid gap-6 md:grid-cols-3 text-sm">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <img src={crest} alt="" width={28} height={28} className="h-7 w-7" />
+            <img src={crest.url} alt="" width={28} height={28} className="h-7 w-7 rounded-full object-cover" />
             <span className="font-serif font-bold text-primary">Mengo Senior School</span>
           </div>
           <p className="text-muted-foreground italic">Akwana Akira Ayomba — Make friends and never foes.</p>

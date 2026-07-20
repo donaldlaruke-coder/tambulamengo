@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import crest from "@/assets/mengo-crest.png";
+import crest from "@/assets/mengo-badge.jpg.asset.json";
 import { ProgressBar } from "@/components/tambula/ProgressBar";
 import { DonationTicker } from "@/components/tambula/DonationTicker";
+import { HeroVideoWall, VideoStrip } from "@/components/tambula/HeroVideos";
 import { useCampaign, useCampaignStats, useLiveDonations } from "@/hooks/use-campaign";
 import { daysUntil, formatUGX } from "@/lib/format";
 
@@ -23,19 +24,27 @@ function Index() {
   return (
     <div>
       {/* HERO */}
-      <section className="hero-band">
-        <div className="container-page py-12 md:py-20 grid md:grid-cols-2 gap-10 items-center">
+      <section className="relative overflow-hidden text-white">
+        <HeroVideoWall />
+        <div className="relative container-page py-16 md:py-28 grid md:grid-cols-2 gap-10 items-center">
           <div>
+            <img
+              src={crest.url}
+              alt="Mengo Senior School badge"
+              width={96}
+              height={96}
+              className="h-20 w-20 md:h-24 md:w-24 rounded-full ring-4 ring-gold/60 shadow-2xl object-cover mb-5"
+            />
             <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs uppercase tracking-widest text-gold mb-4">
               <span className="h-2 w-2 rounded-full bg-gold animate-pulse" /> Live campaign
             </div>
-            <h1 className="text-4xl md:text-6xl font-serif font-bold leading-[1.05]">
-              Tambula Mengo
+            <h1 className="text-5xl md:text-7xl font-serif font-bold leading-[1.02] drop-shadow-lg">
+              Tambula <span className="text-gold">Mengo</span>
             </h1>
             <p className="mt-3 text-lg md:text-xl italic text-gold">
               {campaign.data?.tagline ?? "Akwana Akira Ayomba — Make friends and never foes."}
             </p>
-            <p className="mt-5 text-base md:text-lg text-white/90 max-w-xl">
+            <p className="mt-5 text-base md:text-lg text-white/95 max-w-xl">
               For 130 years Mengo Senior School has shaped generations of Ugandan leaders. Walk with us on{" "}
               <strong className="text-gold">{eventDateLabel}</strong> — or give from anywhere in the world.
             </p>
@@ -44,7 +53,7 @@ function Index() {
               <Link to="/kits" className="btn-outline !text-white !border-white/40 hover:!bg-white/10">Get your run kit</Link>
             </div>
           </div>
-          <div className="card-heritage p-6 md:p-8 !bg-white/95 !border-white/40 text-foreground">
+          <div className="card-heritage p-6 md:p-8 !bg-white/95 !border-white/40 text-foreground backdrop-blur-sm shadow-2xl">
             <ProgressBar raised={raised} goal={goal} />
             <div className="grid grid-cols-3 gap-3 mt-6 text-center">
               <Stat label="Donors" value={stats.data?.donor_count?.toLocaleString() ?? "—"} />
@@ -56,6 +65,20 @@ function Index() {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* Life on the hill — video strip */}
+      <section className="container-page py-12 md:py-16">
+        <div className="flex items-end justify-between mb-5">
+          <div>
+            <div className="text-xs uppercase tracking-widest text-gold font-semibold">The heartbeat of the hill</div>
+            <h2 className="text-2xl md:text-4xl font-serif font-bold text-primary mt-1">A school in motion</h2>
+          </div>
+          <p className="hidden md:block text-sm text-muted-foreground max-w-sm text-right">
+            Every gift lands in these classrooms, dorms, chapels and pitches. Watch and walk with us.
+          </p>
+        </div>
+        <VideoStrip />
       </section>
 
       {/* STORY */}
@@ -81,7 +104,7 @@ function Index() {
         </div>
         <aside className="card-heritage p-6">
           <div className="flex items-center gap-3 mb-3">
-            <img src={crest} alt="" width={44} height={44} className="h-11 w-11" />
+            <img src={crest.url} alt="" width={44} height={44} className="h-11 w-11 rounded-full object-cover ring-2 ring-gold/50" />
             <div>
               <div className="font-serif font-bold text-primary">The Event</div>
               <div className="text-xs text-muted-foreground">Sponsored walk & run</div>
