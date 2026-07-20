@@ -12,7 +12,7 @@ import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import crest from "../assets/mengo-crest.png";
+import crest from "../assets/mengo-badge.jpg.asset.json";
 
 function NotFoundComponent() {
   return (
