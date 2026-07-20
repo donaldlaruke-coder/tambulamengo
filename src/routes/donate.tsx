@@ -243,7 +243,7 @@ function DonatePage() {
             <div className="grid grid-cols-1 gap-2">
               <MethodOption id="mtn_momo" active={method} onSelect={setMethod} title="MTN Mobile Money" hint="Fast · confirm on your phone" />
               <MethodOption id="airtel_money" active={method} onSelect={setMethod} title="Airtel Money" hint="Fast · confirm on your phone" />
-              <MethodOption id="bank" active={method} onSelect={setMethod} title="Bank transfer / deposit" hint={`${campaign.data?.bank_name ?? "Stanbic Bank"} · manual confirmation`} />
+              <MethodOption id="bank" active={method} onSelect={setMethod} title="Bank transfer / deposit" hint="Manual confirmation · details shown next" />
             </div>
             {isMobileMoney && (
               <div className="mt-4">
