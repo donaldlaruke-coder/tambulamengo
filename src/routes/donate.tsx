@@ -4,7 +4,6 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatUGX, generateReference } from "@/lib/format";
-import { useCampaign } from "@/hooks/use-campaign";
 import { getBankTransferDetails, mockConfirmTransaction } from "@/lib/payments.functions";
 
 const searchSchema = z.object({
@@ -32,7 +31,6 @@ type Step = "details" | "waiting" | "success" | "bank_pending";
 function DonatePage() {
   const nav = useNavigate();
   const search = useSearch({ from: "/donate" });
-  const campaign = useCampaign();
   const isKitFlow = !!search.kit;
 
   const [amount, setAmount] = useState<number>(search.amount ?? 25000);
