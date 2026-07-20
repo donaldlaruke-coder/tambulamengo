@@ -4,7 +4,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatUGX, generateReference } from "@/lib/format";
-import { useCampaign } from "@/hooks/use-campaign";
+import { getBankTransferDetails, mockConfirmTransaction } from "@/lib/payments.functions";
 
 const searchSchema = z.object({
   amount: z.number().optional(),
@@ -31,7 +31,6 @@ type Step = "details" | "waiting" | "success" | "bank_pending";
 function DonatePage() {
   const nav = useNavigate();
   const search = useSearch({ from: "/donate" });
-  const campaign = useCampaign();
   const isKitFlow = !!search.kit;
 
   const [amount, setAmount] = useState<number>(search.amount ?? 25000);
@@ -44,6 +43,11 @@ function DonatePage() {
   const [step, setStep] = useState<Step>("details");
   const [reference, setReference] = useState<string>("");
   const [busy, setBusy] = useState(false);
+  const [bankDetails, setBankDetails] = useState<{
+    bank_name: string | null;
+    bank_account_name: string | null;
+    bank_account_number: string | null;
+  } | null>(null);
 
   const isMobileMoney = method === "mtn_momo" || method === "airtel_money";
 
@@ -104,17 +108,28 @@ function DonatePage() {
       }
 
       if (method === "bank") {
+        try {
+          const details = await getBankTransferDetails({ data: { internal_reference: ref } });
+          setBankDetails({
+            bank_name: details.bank_name,
+            bank_account_name: details.bank_account_name,
+            bank_account_number: details.bank_account_number,
+          });
+        } catch {
+          setBankDetails(null);
+        }
         setStep("bank_pending");
       } else {
         setStep("waiting");
         // MOCK: simulate mobile-money confirmation after 4s
         setTimeout(async () => {
-          const { data, error } = await supabase.rpc("mock_confirm_transaction", { _internal_reference: ref });
-          if (error || data !== "confirmed") {
+          try {
+            const res = await mockConfirmTransaction({ data: { internal_reference: ref } });
+            if (res.status !== "confirmed") throw new Error("not_confirmed");
+            setStep("success");
+          } catch {
             toast.error("Could not confirm payment. Please try again.");
             setStep("details");
-          } else {
-            setStep("success");
           }
         }, 4000);
       }
@@ -226,7 +241,7 @@ function DonatePage() {
             <div className="grid grid-cols-1 gap-2">
               <MethodOption id="mtn_momo" active={method} onSelect={setMethod} title="MTN Mobile Money" hint="Fast · confirm on your phone" />
               <MethodOption id="airtel_money" active={method} onSelect={setMethod} title="Airtel Money" hint="Fast · confirm on your phone" />
-              <MethodOption id="bank" active={method} onSelect={setMethod} title="Bank transfer / deposit" hint={`${campaign.data?.bank_name ?? "Stanbic Bank"} · manual confirmation`} />
+              <MethodOption id="bank" active={method} onSelect={setMethod} title="Bank transfer / deposit" hint="Manual confirmation · details shown next" />
             </div>
             {isMobileMoney && (
               <div className="mt-4">
@@ -269,16 +284,16 @@ function DonatePage() {
         </div>
       )}
 
-      {step === "bank_pending" && campaign.data && (
+      {step === "bank_pending" && (
         <div className="space-y-5 py-4">
           <header>
             <h1 className="text-2xl md:text-3xl font-serif font-bold text-primary">Bank transfer details</h1>
             <p className="text-muted-foreground mt-1">Pay {formatUGX(amount)} using the details below.</p>
           </header>
           <dl className="card-heritage p-5 divide-y divide-border">
-            <Row label="Bank" value={campaign.data.bank_name} />
-            <Row label="Account name" value={campaign.data.bank_account_name} />
-            <Row label="Account number" value={campaign.data.bank_account_number} />
+            <Row label="Bank" value={bankDetails?.bank_name ?? "—"} />
+            <Row label="Account name" value={bankDetails?.bank_account_name ?? "—"} />
+            <Row label="Account number" value={bankDetails?.bank_account_number ?? "—"} />
             <Row label="Amount" value={formatUGX(amount)} />
             <Row label="Reference (very important)" value={reference} highlight />
           </dl>
