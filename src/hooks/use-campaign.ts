@@ -10,9 +10,6 @@ export type CampaignSettings = {
   goal_amount: number;
   event_date: string;
   event_details: string | null;
-  bank_name: string | null;
-  bank_account_name: string | null;
-  bank_account_number: string | null;
 };
 
 export type CampaignStats = {
@@ -39,7 +36,11 @@ export function useCampaign() {
   const q = useQuery({
     queryKey: ["campaign"],
     queryFn: async (): Promise<CampaignSettings> => {
-      const { data, error } = await supabase.from("campaign_settings").select("*").eq("id", 1).single();
+      const { data, error } = await supabase
+        .from("campaign_settings")
+        .select("id, campaign_name, tagline, story, goal_amount, event_date, event_details")
+        .eq("id", 1)
+        .single();
       if (error) throw error;
       return data as CampaignSettings;
     },
