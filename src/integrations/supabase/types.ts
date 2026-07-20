@@ -252,26 +252,12 @@ export type Database = {
           total_raised: number
         }[]
       }
-      get_transaction_status: {
-        Args: { _internal_reference: string }
-        Returns: {
-          amount: number
-          confirmed_at: string
-          internal_reference: string
-          status: Database["public"]["Enums"]["transaction_status"]
-          type: Database["public"]["Enums"]["transaction_type"]
-        }[]
-      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
-      }
-      mock_confirm_transaction: {
-        Args: { _internal_reference: string }
-        Returns: Database["public"]["Enums"]["transaction_status"]
       }
     }
     Enums: {
