@@ -8,9 +8,11 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import crest from "../assets/mengo-crest.png";
 
 function NotFoundComponent() {
   return (
@@ -77,21 +79,25 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Tambula Mengo — Walk & Run for Mengo Senior School" },
+      { name: "description", content: "Support Mengo Senior School's 130-year legacy. Donate live via MTN MoMo, Airtel Money or bank, and get your Tambula Mengo run kit." },
+      { name: "author", content: "Mengo Senior School" },
+      { name: "theme-color", content: "#7A1E2B" },
+      { property: "og:title", content: "Tambula Mengo — Walk & Run for Mengo Senior School" },
+      { property: "og:description", content: "Live donations, sponsored walk on 15 August. Join the Mengo family." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon.png", type: "image/png" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@500;600;700&display=swap",
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -119,8 +125,73 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <div className="min-h-screen flex flex-col bg-background text-foreground">
+        <SiteHeader />
+        <main className="flex-1">
+          <Outlet />
+        </main>
+        <SiteFooter />
+      </div>
+      <Toaster position="top-center" richColors closeButton />
     </QueryClientProvider>
+  );
+}
+
+function SiteHeader() {
+  return (
+    <header className="border-b border-border bg-background/90 backdrop-blur sticky top-0 z-40">
+      <div className="container-page flex items-center justify-between py-3">
+        <Link to="/" className="flex items-center gap-3">
+          <img src={crest} alt="Mengo Senior School crest" width={40} height={40} className="h-10 w-10" />
+          <div className="leading-tight">
+            <div className="font-serif text-lg font-bold text-primary">Tambula Mengo</div>
+            <div className="text-[11px] uppercase tracking-widest text-muted-foreground">Mengo Senior School</div>
+          </div>
+        </Link>
+        <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
+          <Link to="/" className="hover:text-primary" activeProps={{ className: "text-primary" }}>Home</Link>
+          <Link to="/donations" className="hover:text-primary" activeProps={{ className: "text-primary" }}>Live donations</Link>
+          <Link to="/kits" className="hover:text-primary" activeProps={{ className: "text-primary" }}>Get a kit</Link>
+          <Link to="/donate" className="btn-primary !min-h-0 !py-2 !px-4 text-sm">Donate</Link>
+        </nav>
+        <Link to="/donate" className="md:hidden btn-primary !min-h-0 !py-2 !px-4 text-sm">Donate</Link>
+      </div>
+    </header>
+  );
+}
+
+function SiteFooter() {
+  return (
+    <footer className="border-t border-border bg-cream mt-16">
+      <div className="container-page py-10 grid gap-6 md:grid-cols-3 text-sm">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <img src={crest} alt="" width={28} height={28} className="h-7 w-7" />
+            <span className="font-serif font-bold text-primary">Mengo Senior School</span>
+          </div>
+          <p className="text-muted-foreground italic">Akwana Akira Ayomba — Make friends and never foes.</p>
+          <p className="text-muted-foreground mt-2">Namirembe Diocese, Church of Uganda · Kampala</p>
+        </div>
+        <div>
+          <div className="font-semibold mb-2">Support</div>
+          <ul className="space-y-1 text-muted-foreground">
+            <li><Link to="/donate" className="hover:text-primary">Make a donation</Link></li>
+            <li><Link to="/kits" className="hover:text-primary">Buy a run kit</Link></li>
+            <li><Link to="/donations" className="hover:text-primary">See live donations</Link></li>
+          </ul>
+        </div>
+        <div>
+          <div className="font-semibold mb-2">Staff</div>
+          <ul className="space-y-1 text-muted-foreground">
+            <li><Link to="/auth" className="hover:text-primary">Admin sign in</Link></li>
+          </ul>
+        </div>
+      </div>
+      <div className="border-t border-border">
+        <div className="container-page py-4 text-xs text-muted-foreground text-center">
+          © {new Date().getFullYear()} Mengo Senior School. All donations processed via MTN MoMo, Airtel Money and Stanbic Bank.
+        </div>
+      </div>
+    </footer>
   );
 }
