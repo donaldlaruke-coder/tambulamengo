@@ -1,0 +1,119 @@
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
+export type CampaignSettings = {
+  id: number;
+  campaign_name: string;
+  tagline: string | null;
+  story: string | null;
+  goal_amount: number;
+  event_date: string;
+  event_details: string | null;
+  bank_name: string | null;
+  bank_account_name: string | null;
+  bank_account_number: string | null;
+};
+
+export type CampaignStats = {
+  total_raised: number;
+  donor_count: number;
+  donation_count: number;
+  average_donation: number;
+};
+
+export type PublicTransaction = {
+  id: string;
+  amount: number;
+  type: "donation" | "kit_purchase";
+  payment_method: "mtn_momo" | "airtel_money" | "bank";
+  message: string | null;
+  is_anonymous: boolean;
+  donor_display_name: string | null;
+  confirmed_at: string | null;
+  created_at: string;
+};
+
+export function useCampaign() {
+  const qc = useQueryClient();
+  const q = useQuery({
+    queryKey: ["campaign"],
+    queryFn: async (): Promise<CampaignSettings> => {
+      const { data, error } = await supabase.from("campaign_settings").select("*").eq("id", 1).single();
+      if (error) throw error;
+      return data as CampaignSettings;
+    },
+  });
+  useEffect(() => {
+    const channel = supabase
+      .channel("rt:campaign")
+      .on("postgres_changes", { event: "*", schema: "public", table: "campaign_settings" }, () => {
+        qc.invalidateQueries({ queryKey: ["campaign"] });
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc]);
+  return q;
+}
+
+export function useCampaignStats() {
+  const qc = useQueryClient();
+  const q = useQuery({
+    queryKey: ["campaign-stats"],
+    queryFn: async (): Promise<CampaignStats> => {
+      const { data, error } = await supabase.rpc("get_campaign_stats").single();
+      if (error) throw error;
+      return data as CampaignStats;
+    },
+  });
+  useEffect(() => {
+    const channel = supabase
+      .channel("rt:tx-stats")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "transactions" },
+        () => qc.invalidateQueries({ queryKey: ["campaign-stats"] }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc]);
+  return q;
+}
+
+export function useLiveDonations(limit = 25, typeFilter?: "donation" | "kit_purchase") {
+  const qc = useQueryClient();
+  const key = ["live-donations", limit, typeFilter ?? "all"];
+  const q = useQuery({
+    queryKey: key,
+    queryFn: async (): Promise<PublicTransaction[]> => {
+      let query = supabase
+        .from("transactions")
+        .select("id, amount, type, payment_method, message, is_anonymous, donor_display_name, confirmed_at, created_at")
+        .eq("status", "confirmed")
+        .order("confirmed_at", { ascending: false, nullsFirst: false })
+        .limit(limit);
+      if (typeFilter) query = query.eq("type", typeFilter);
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data ?? []) as PublicTransaction[];
+    },
+  });
+  useEffect(() => {
+    const channel = supabase
+      .channel("rt:tx-feed")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "transactions" },
+        () => qc.invalidateQueries({ queryKey: ["live-donations"] }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc]);
+  return q;
+}
