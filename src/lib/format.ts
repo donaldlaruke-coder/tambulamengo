@@ -43,3 +43,26 @@ export function generateReference(prefix: string): string {
   const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
   return `${prefix}-${stamp}-${rand}`;
 }
+
+// Normalize a Uganda mobile number to the local 0XXXXXXXXX format.
+// Returns null if it doesn't look like a valid MSISDN.
+export function normalizeUgPhone(raw: string): string | null {
+  const digits = raw.replace(/[^\d]/g, "");
+  let local = digits;
+  if (digits.startsWith("256")) local = "0" + digits.slice(3);
+  else if (digits.startsWith("0")) local = digits;
+  else if (digits.length === 9 && digits.startsWith("7")) local = "0" + digits;
+  if (!/^0\d{9}$/.test(local)) return null;
+  return local;
+}
+
+// Detect the mobile-money network for a Uganda number.
+// MTN: 077, 078, 076, 039; Airtel: 070, 075, 074.
+export function detectUgNetwork(raw: string): "mtn_momo" | "airtel_money" | null {
+  const local = normalizeUgPhone(raw);
+  if (!local) return null;
+  const p = local.slice(0, 3);
+  if (["077", "078", "076", "039"].includes(p)) return "mtn_momo";
+  if (["070", "075", "074"].includes(p)) return "airtel_money";
+  return null;
+}

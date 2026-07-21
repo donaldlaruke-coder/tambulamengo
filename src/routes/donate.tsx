@@ -1,9 +1,15 @@
 import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
+import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
-import { formatUGX, generateReference } from "@/lib/format";
+import {
+  detectUgNetwork,
+  formatUGX,
+  generateReference,
+  normalizeUgPhone,
+} from "@/lib/format";
 import { getBankTransferDetails, mockConfirmTransaction } from "@/lib/payments.functions";
 
 const searchSchema = z.object({
@@ -36,9 +42,10 @@ function DonatePage() {
   const [amount, setAmount] = useState<number>(search.amount ?? 25000);
   const [customOpen, setCustomOpen] = useState(false);
   const [name, setName] = useState("");
+  const [showName, setShowName] = useState(false);
   const [anonymous, setAnonymous] = useState(false);
   const [message, setMessage] = useState("");
-  const [method, setMethod] = useState<Method>("mtn_momo");
+  const [payByBank, setPayByBank] = useState(false);
   const [phone, setPhone] = useState("");
   const [step, setStep] = useState<Step>("details");
   const [reference, setReference] = useState<string>("");
@@ -49,7 +56,10 @@ function DonatePage() {
     bank_account_number: string | null;
   } | null>(null);
 
-  const isMobileMoney = method === "mtn_momo" || method === "airtel_money";
+  const network = useMemo(() => detectUgNetwork(phone), [phone]);
+  const normalized = useMemo(() => normalizeUgPhone(phone), [phone]);
+  const method: Method = payByBank ? "bank" : network ?? "mtn_momo";
+  const isMobileMoney = method !== "bank";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -57,17 +67,23 @@ function DonatePage() {
       toast.error("Minimum donation is UGX 500");
       return;
     }
-    if (isMobileMoney && !/^(0|\+?256)?7\d{8}$/.test(phone.replace(/\s/g, ""))) {
-      toast.error("Enter a valid Uganda mobile number (e.g. 0772 123 456)");
-      return;
+    if (isMobileMoney) {
+      if (!normalized) {
+        toast.error("Enter a valid Uganda mobile number (e.g. 0772 123 456)");
+        return;
+      }
+      if (!network) {
+        toast.error("This number isn't MTN or Airtel. Pay by bank instead?");
+        return;
+      }
     }
     setBusy(true);
     try {
       let donorId: string | null = null;
-      if (!anonymous && (name || phone)) {
+      if (!anonymous && (name || normalized)) {
         const { data: donor, error: dErr } = await supabase
           .from("donors")
-          .insert({ name: name || null, phone: phone || null })
+          .insert({ name: name || null, phone: normalized || null })
           .select("id")
           .single();
         if (dErr) throw dErr;
@@ -144,18 +160,27 @@ function DonatePage() {
   return (
     <div className="container-page max-w-2xl py-8 md:py-12 pb-24">
       {step === "details" && (
-        <form onSubmit={submit} className="space-y-6">
+        <form onSubmit={submit} className="space-y-5">
           <header>
-            <div className="text-xs uppercase tracking-widest text-muted-foreground">Step 1 of 2</div>
             <h1 className="text-3xl md:text-4xl font-serif font-bold text-primary mt-1">
-              {isKitFlow ? "Pay for your run kit" : "Give to Mengo"}
+              {isKitFlow ? "Pay for your run kit" : "Give in seconds"}
             </h1>
-            <p className="text-muted-foreground mt-1">Takes under a minute. No account needed.</p>
+            <p className="text-muted-foreground mt-1">
+              Enter your phone, pick an amount, tap Pay. We'll send an MTN or Airtel prompt to your phone.
+            </p>
           </header>
 
-          {!isKitFlow && (
+          {isKitFlow ? (
             <div className="card-heritage p-5">
-              <label className="block text-sm font-semibold mb-3">Choose an amount (UGX)</label>
+              <div className="text-sm text-muted-foreground">Amount to pay</div>
+              <div className="text-3xl font-serif font-bold text-primary">{formatUGX(amount)}</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {search.qty ?? 1} × Tambula Mengo Run Kit{search.size ? ` (${search.size})` : ""}
+              </div>
+            </div>
+          ) : (
+            <div className="card-heritage p-5">
+              <label className="block text-sm font-semibold mb-3">Amount (UGX)</label>
               <div className="grid grid-cols-3 gap-2">
                 {QUICK.map((v) => (
                   <button
@@ -196,74 +221,98 @@ function DonatePage() {
             </div>
           )}
 
-          {isKitFlow && (
-            <div className="card-heritage p-5">
-              <div className="text-sm text-muted-foreground">Amount to pay</div>
-              <div className="text-3xl font-serif font-bold text-primary">{formatUGX(amount)}</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                {search.qty ?? 1} × Tambula Mengo Run Kit{search.size ? ` (${search.size})` : ""}
+          <div className="card-heritage p-5">
+            <label htmlFor="phone" className="block text-sm font-semibold mb-2">
+              Your mobile money number
+            </label>
+            <div className="relative">
+              <input
+                id="phone"
+                type="tel"
+                autoComplete="tel"
+                inputMode="tel"
+                value={phone}
+                onChange={(e) => { setPhone(e.target.value); if (payByBank) setPayByBank(false); }}
+                placeholder="0772 123 456"
+                className="w-full rounded-lg border-2 border-input bg-background px-4 py-4 text-xl font-semibold tracking-wide focus:border-primary outline-none"
+              />
+              {network && !payByBank && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold uppercase tracking-widest bg-primary text-primary-foreground rounded-full px-3 py-1">
+                  {network === "mtn_momo" ? "MTN" : "Airtel"}
+                </span>
+              )}
+            </div>
+            <div className="mt-2 min-h-5 text-xs">
+              {payByBank ? (
+                <span className="text-primary font-medium">Paying by bank — details on the next screen.</span>
+              ) : phone && !normalized ? (
+                <span className="text-destructive">Doesn't look like a Uganda number yet.</span>
+              ) : phone && normalized && !network ? (
+                <span className="text-muted-foreground">Not MTN or Airtel.{" "}
+                  <button type="button" onClick={() => setPayByBank(true)} className="underline text-primary font-medium">
+                    Pay by bank instead
+                  </button>
+                </span>
+              ) : network ? (
+                <span className="text-muted-foreground">We'll send an {network === "mtn_momo" ? "MTN MoMo" : "Airtel Money"} prompt — enter your PIN to confirm.</span>
+              ) : (
+                <span className="text-muted-foreground">MTN or Airtel — we auto-detect.</span>
+              )}
+            </div>
+          </div>
+
+          {!showName ? (
+            <button
+              type="button"
+              onClick={() => setShowName(true)}
+              className="text-sm text-primary underline underline-offset-2"
+            >
+              + Add your name or a message
+            </button>
+          ) : (
+            <div className="card-heritage p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold mb-1">Your name <span className="text-muted-foreground font-normal">(optional)</span></label>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={anonymous}
+                  placeholder="e.g. Jane N."
+                  className="w-full rounded-lg border border-input bg-background px-4 py-3 disabled:opacity-50"
+                />
               </div>
+              {!isKitFlow && (
+                <div>
+                  <label className="block text-sm font-semibold mb-1">Message <span className="text-muted-foreground font-normal">(optional)</span></label>
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    maxLength={200}
+                    rows={2}
+                    placeholder="Say something to Mengo…"
+                    className="w-full rounded-lg border border-input bg-background px-4 py-3"
+                  />
+                </div>
+              )}
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={anonymous} onChange={(e) => setAnonymous(e.target.checked)} className="h-5 w-5 accent-[oklch(0.38_0.13_20)]" />
+                <span className="text-sm">Give anonymously</span>
+              </label>
             </div>
           )}
 
-          <div className="card-heritage p-5 space-y-4">
-            <div>
-              <label className="block text-sm font-semibold mb-1">Your name <span className="text-muted-foreground font-normal">(optional)</span></label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                disabled={anonymous}
-                placeholder="e.g. Jane N."
-                className="w-full rounded-lg border border-input bg-background px-4 py-3 disabled:opacity-50"
-              />
-            </div>
-            {!isKitFlow && (
-              <div>
-                <label className="block text-sm font-semibold mb-1">Message <span className="text-muted-foreground font-normal">(optional)</span></label>
-                <textarea
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  maxLength={200}
-                  rows={2}
-                  placeholder="Say something to Mengo…"
-                  className="w-full rounded-lg border border-input bg-background px-4 py-3"
-                />
-              </div>
-            )}
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" checked={anonymous} onChange={(e) => setAnonymous(e.target.checked)} className="h-5 w-5 accent-[oklch(0.38_0.13_20)]" />
-              <span className="text-sm">Give anonymously</span>
-            </label>
-          </div>
-
-          <div className="card-heritage p-5">
-            <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Step 2 of 2 · Payment method</div>
-            <div className="grid grid-cols-1 gap-2">
-              <MethodOption id="mtn_momo" active={method} onSelect={setMethod} title="MTN Mobile Money" hint="Fast · confirm on your phone" />
-              <MethodOption id="airtel_money" active={method} onSelect={setMethod} title="Airtel Money" hint="Fast · confirm on your phone" />
-              <MethodOption id="bank" active={method} onSelect={setMethod} title="Bank transfer / deposit" hint="Manual confirmation · details shown next" />
-            </div>
-            {isMobileMoney && (
-              <div className="mt-4">
-                <label className="block text-sm font-semibold mb-1">Phone number</label>
-                <input
-                  type="tel"
-                  inputMode="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="0772 123 456"
-                  className="w-full rounded-lg border border-input bg-background px-4 py-3 text-lg"
-                />
-                <p className="text-xs text-muted-foreground mt-2">
-                  We'll send a prompt to this phone. Enter your PIN to confirm.
-                </p>
-              </div>
-            )}
-          </div>
-
-          <button type="submit" disabled={busy} className="btn-primary w-full text-base">
+          <button type="submit" disabled={busy} className="btn-primary w-full text-lg py-4">
             {busy ? "Please wait…" : method === "bank" ? "Get bank details" : `Pay ${formatUGX(amount)}`}
           </button>
+          {!payByBank && (
+            <button
+              type="button"
+              onClick={() => setPayByBank(true)}
+              className="block mx-auto text-sm text-muted-foreground underline"
+            >
+              Or pay by bank transfer
+            </button>
+          )}
           <p className="text-xs text-muted-foreground text-center">
             By continuing you agree that Mengo Senior School may contact you about this gift.
           </p>
@@ -276,7 +325,7 @@ function DonatePage() {
           <div>
             <h2 className="text-2xl font-serif font-bold text-primary">Check your phone</h2>
             <p className="text-muted-foreground mt-2 max-w-md mx-auto">
-              Enter your {method === "mtn_momo" ? "MTN MoMo" : "Airtel Money"} PIN to confirm{" "}
+              Enter your {network === "airtel_money" ? "Airtel Money" : "MTN MoMo"} PIN to confirm{" "}
               <strong className="text-foreground">{formatUGX(amount)}</strong> to Mengo Senior School.
             </p>
             <p className="text-xs text-muted-foreground mt-3">Reference: {reference}</p>
@@ -297,6 +346,18 @@ function DonatePage() {
             <Row label="Amount" value={formatUGX(amount)} />
             <Row label="Reference (very important)" value={reference} highlight />
           </dl>
+          {isKitFlow && (
+            <div className="card-heritage p-5 text-center">
+              <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Show this at pickup</div>
+              <div className="inline-block bg-white p-3 rounded-lg">
+                <QRCodeSVG value={reference} size={180} level="M" />
+              </div>
+              <div className="mt-3 font-mono text-sm">{reference}</div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Save a screenshot. Your kit is released once we confirm your bank payment.
+              </p>
+            </div>
+          )}
           <p className="text-sm text-muted-foreground">
             After paying, your gift will appear on the live board once our team confirms it (usually the same day).
           </p>
@@ -307,11 +368,26 @@ function DonatePage() {
       {step === "success" && (
         <div className="text-center py-10 space-y-5">
           <div className="mx-auto h-20 w-20 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-4xl">✓</div>
-          <h2 className="text-3xl font-serif font-bold text-primary">Thank you!</h2>
+          <h2 className="text-3xl font-serif font-bold text-primary">
+            {isKitFlow ? "Kit reserved!" : "Thank you!"}
+          </h2>
           <p className="text-lg">
-            Your gift of <strong>{formatUGX(amount)}</strong> is confirmed.
+            {isKitFlow ? "Your payment of" : "Your gift of"} <strong>{formatUGX(amount)}</strong> is confirmed.
           </p>
-          <p className="text-sm text-muted-foreground">Reference: {reference}</p>
+          {isKitFlow ? (
+            <div className="card-heritage p-6 max-w-sm mx-auto">
+              <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Pickup pass</div>
+              <div className="inline-block bg-white p-3 rounded-lg">
+                <QRCodeSVG value={reference} size={200} level="M" />
+              </div>
+              <div className="mt-3 font-mono text-sm">{reference}</div>
+              <p className="text-xs text-muted-foreground mt-3">
+                Screenshot this and show it at the school pavilion to collect your kit.
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Reference: {reference}</p>
+          )}
           <div className="flex flex-wrap justify-center gap-3 pt-2">
             <Link to="/donations" className="btn-primary">See the live board</Link>
             <Link to="/" className="btn-outline">Back to home</Link>
@@ -328,30 +404,5 @@ function Row({ label, value, highlight }: { label: string; value: string | null;
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className={`font-semibold text-right ${highlight ? "text-primary text-lg" : ""}`}>{value}</dd>
     </div>
-  );
-}
-
-function MethodOption({
-  id, active, onSelect, title, hint,
-}: {
-  id: Method; active: Method; onSelect: (m: Method) => void; title: string; hint: string;
-}) {
-  const isActive = active === id;
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(id)}
-      className={`text-left rounded-lg border-2 p-4 flex items-center gap-3 ${
-        isActive ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
-      }`}
-    >
-      <div className={`h-5 w-5 rounded-full border-2 ${isActive ? "border-primary" : "border-muted-foreground"} flex items-center justify-center flex-shrink-0`}>
-        {isActive && <div className="h-2.5 w-2.5 rounded-full bg-primary" />}
-      </div>
-      <div>
-        <div className="font-semibold">{title}</div>
-        <div className="text-xs text-muted-foreground">{hint}</div>
-      </div>
-    </button>
   );
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatUGX, timeAgo } from "@/lib/format";
+import { PickupStation } from "@/components/tambula/PickupStation";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({ meta: [{ title: "Admin — Tambula Mengo" }, { name: "robots", content: "noindex" }] }),
@@ -20,7 +21,7 @@ type AdminTx = {
 function Admin() {
   const nav = useNavigate();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"overview" | "transactions" | "pending" | "kits" | "campaign">("overview");
+  const [tab, setTab] = useState<"overview" | "pickup" | "transactions" | "pending" | "kits" | "campaign">("overview");
 
   const isAdminQ = useQuery({
     queryKey: ["is-admin"],
@@ -100,7 +101,7 @@ function Admin() {
       </div>
 
       <div className="flex gap-2 mb-4 border-b border-border overflow-x-auto">
-        {(["overview", "transactions", "pending", "kits", "campaign"] as const).map((k) => (
+        {(["overview", "pickup", "transactions", "pending", "kits", "campaign"] as const).map((k) => (
           <button key={k} onClick={() => setTab(k)}
             className={`px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px whitespace-nowrap ${
               tab === k ? "border-primary text-primary" : "border-transparent text-muted-foreground"
@@ -114,6 +115,7 @@ function Admin() {
           <TxTable rows={(txs.data ?? []).slice(0, 15)} />
         </div>
       )}
+      {tab === "pickup" && <PickupStation />}
       {tab === "transactions" && (
         <div className="card-heritage p-4 md:p-6">
           <div className="flex justify-between items-center mb-4">
