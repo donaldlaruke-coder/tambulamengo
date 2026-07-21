@@ -84,9 +84,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "author", content: "Mengo Senior School" },
       { name: "theme-color", content: "#7A1E2B" },
       { property: "og:title", content: "Tambula Mengo — Walk & Run for Mengo Senior School" },
-      { property: "og:description", content: "Live donations, sponsored walk on 15 August. Join the Mengo family." },
+      { property: "og:description", content: "Support Mengo Senior School's 130-year legacy. Donate live via MTN MoMo, Airtel Money or bank, and get your Tambula Mengo run kit." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Tambula Mengo — Walk & Run for Mengo Senior School" },
+      { name: "twitter:description", content: "Support Mengo Senior School's 130-year legacy. Donate live via MTN MoMo, Airtel Money or bank, and get your Tambula Mengo run kit." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/1aed7c99-3b3d-46f9-8551-407f4f2055de/id-preview-8d4347c5--f24d6fd1-94d5-4ac9-be10-0a81e3e1c5fd.lovable.app-1784656922259.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/1aed7c99-3b3d-46f9-8551-407f4f2055de/id-preview-8d4347c5--f24d6fd1-94d5-4ac9-be10-0a81e3e1c5fd.lovable.app-1784656922259.png" },
     ],
     links: [
       {
