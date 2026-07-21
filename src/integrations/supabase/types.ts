@@ -85,6 +85,8 @@ export type Database = {
           fulfillment_status: string
           id: string
           kit_product_id: string
+          picked_up_at: string | null
+          picked_up_by: string | null
           quantity: number
           size: string | null
           transaction_id: string
@@ -94,6 +96,8 @@ export type Database = {
           fulfillment_status?: string
           id?: string
           kit_product_id: string
+          picked_up_at?: string | null
+          picked_up_by?: string | null
           quantity: number
           size?: string | null
           transaction_id: string
@@ -103,6 +107,8 @@ export type Database = {
           fulfillment_status?: string
           id?: string
           kit_product_id?: string
+          picked_up_at?: string | null
+          picked_up_by?: string | null
           quantity?: number
           size?: string | null
           transaction_id?: string
