@@ -157,6 +157,12 @@ function Kpi({ label, value, highlight }: { label: string; value: string; highli
 }
 
 function TxTable({ rows, showActions }: { rows: AdminTx[]; showActions?: boolean }) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [methodFilter, setMethodFilter] = useState<string>("all");
+  const [groupByDay, setGroupByDay] = useState<boolean>(true);
+
   const qc = useQueryClient();
   const confirm = useMutation({
     mutationFn: async (id: string) => {
@@ -194,48 +200,296 @@ function TxTable({ rows, showActions }: { rows: AdminTx[]; showActions?: boolean
     onError: (e) => toast.error((e as Error).message),
   });
 
-  if (!rows.length) return <div className="text-muted-foreground text-center py-8">No records.</div>;
+  // Filter rows based on search and dropdown categories
+  const filtered = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    return rows.filter((t) => {
+      // Type filter
+      if (typeFilter !== "all" && t.type !== typeFilter) return false;
+      // Status filter
+      if (statusFilter !== "all" && t.status !== statusFilter) return false;
+      // Method filter
+      if (methodFilter !== "all" && t.payment_method !== methodFilter) return false;
+
+      // Search query across all fields
+      if (q) {
+        const nameMatch = (t.donor_name || t.donor_display_name || "").toLowerCase().includes(q);
+        const phoneMatch = (t.donor_phone || "").toLowerCase().includes(q);
+        const emailMatch = (t.donor_email || "").toLowerCase().includes(q);
+        const refMatch = (t.internal_reference || "").toLowerCase().includes(q);
+        const codeMatch = (t.provider_reference || "").toLowerCase().includes(q);
+        const msgMatch = (t.message || "").toLowerCase().includes(q);
+        const amountMatch = t.amount.toString().includes(q);
+        const typeMatch = t.type.toLowerCase().includes(q);
+
+        if (!nameMatch && !phoneMatch && !emailMatch && !refMatch && !codeMatch && !msgMatch && !amountMatch && !typeMatch) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [rows, searchQuery, typeFilter, statusFilter, methodFilter]);
+
+  // Group filtered rows by calendar date
+  const groupedByDate = useMemo(() => {
+    const groups: { dateLabel: string; items: AdminTx[]; totalAmount: number }[] = [];
+    const dateMap = new Map<string, AdminTx[]>();
+
+    filtered.forEach((t) => {
+      const d = new Date(t.created_at);
+      const dateStr = d.toLocaleDateString("en-GB", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+      if (!dateMap.has(dateStr)) {
+        dateMap.set(dateStr, []);
+      }
+      dateMap.get(dateStr)!.push(t);
+    });
+
+    dateMap.forEach((items, dateLabel) => {
+      const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
+      groups.push({ dateLabel, items, totalAmount });
+    });
+
+    return groups;
+  }, [filtered]);
+
+  return (
+    <div className="space-y-4">
+      {/* Search and Category Filters Control Panel */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-muted/30 p-3.5 rounded-xl border border-border">
+        {/* Search Bar */}
+        <div className="relative flex-1 min-w-[240px]">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="🔍 Search name, phone, ref (KIT-…), code, amount…"
+            className="w-full rounded-lg border border-input bg-background px-3.5 py-2 text-sm font-medium focus:border-primary outline-none"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              ✕ Clear
+            </button>
+          )}
+        </div>
+
+        {/* Category Selectors */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          {/* Type Filter */}
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="rounded-lg border border-input bg-background px-3 py-2 font-medium"
+          >
+            <option value="all">Category: All Types</option>
+            <option value="donation">🎁 Donations</option>
+            <option value="kit_purchase">🎽 Kit Purchases</option>
+          </select>
+
+          {/* Status Filter */}
+          {!showActions && (
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="rounded-lg border border-input bg-background px-3 py-2 font-medium"
+            >
+              <option value="all">Status: All Statuses</option>
+              <option value="confirmed">✓ Confirmed</option>
+              <option value="pending">⏳ Pending</option>
+              <option value="failed">✕ Failed</option>
+            </select>
+          )}
+
+          {/* Payment Method Filter */}
+          <select
+            value={methodFilter}
+            onChange={(e) => setMethodFilter(e.target.value)}
+            className="rounded-lg border border-input bg-background px-3 py-2 font-medium"
+          >
+            <option value="all">Method: All Methods</option>
+            <option value="mtn_momo">MTN MoMo</option>
+            <option value="airtel_money">Airtel Money</option>
+            <option value="card">Bank Card</option>
+            <option value="bank">Bank Transfer</option>
+          </select>
+
+          {/* Grouping Toggle */}
+          <button
+            type="button"
+            onClick={() => setGroupByDay((prev) => !prev)}
+            className={`px-3 py-2 rounded-lg border font-semibold transition-colors ${
+              groupByDay
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background border-border text-muted-foreground hover:border-primary"
+            }`}
+          >
+            {groupByDay ? "📅 Grouped by Day" : "📋 List View"}
+          </button>
+
+          {/* CSV Export for filtered results */}
+          <button
+            type="button"
+            onClick={() => downloadCsv(filtered)}
+            className="btn-outline !min-h-0 !py-2 !px-3 text-xs"
+          >
+            📥 Export CSV ({filtered.length})
+          </button>
+        </div>
+      </div>
+
+      {/* Filter summary bar */}
+      <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+        <span>
+          Showing <strong>{filtered.length}</strong> of {rows.length} transactions
+          {filtered.length > 0 && (
+            <span className="ml-2 font-semibold text-primary">
+              · Total: {formatUGX(filtered.reduce((sum, item) => sum + item.amount, 0))}
+            </span>
+          )}
+        </span>
+        {(searchQuery || typeFilter !== "all" || statusFilter !== "all" || methodFilter !== "all") && (
+          <button
+            onClick={() => {
+              setSearchQuery("");
+              setTypeFilter("all");
+              setStatusFilter("all");
+              setMethodFilter("all");
+            }}
+            className="text-xs text-primary underline underline-offset-2"
+          >
+            Reset all filters
+          </button>
+        )}
+      </div>
+
+      {/* Transactions Render */}
+      {!filtered.length ? (
+        <div className="text-muted-foreground text-center py-10 card-heritage">
+          No transactions match the selected search or filter criteria.
+        </div>
+      ) : groupByDay ? (
+        /* Grouped By Day View */
+        <div className="space-y-6">
+          {groupedByDate.map((group) => (
+            <div key={group.dateLabel} className="card-heritage overflow-hidden">
+              {/* Day Header */}
+              <div className="bg-muted/40 px-4 py-3 border-b border-border flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-serif font-bold text-primary">{group.dateLabel}</span>
+                  <span className="text-xs bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-full">
+                    {group.items.length} transaction{group.items.length > 1 ? "s" : ""}
+                  </span>
+                </div>
+                <div className="text-sm font-semibold text-primary">
+                  {formatUGX(group.totalAmount)}
+                </div>
+              </div>
+
+              {/* Table for this day */}
+              <TableContent rows={group.items} showActions={showActions} confirm={confirm} reject={reject} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        /* Flat List View */
+        <div className="card-heritage overflow-hidden">
+          <TableContent rows={filtered} showActions={showActions} confirm={confirm} reject={reject} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TableContent({
+  rows,
+  showActions,
+  confirm,
+  reject,
+}: {
+  rows: AdminTx[];
+  showActions?: boolean;
+  confirm: any;
+  reject: any;
+}) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
-        <thead className="text-xs uppercase tracking-widest text-muted-foreground">
-          <tr className="text-left">
-            <th className="py-2 pr-3">When</th>
-            <th className="py-2 pr-3">Donor / Phone</th>
-            <th className="py-2 pr-3">Type</th>
-            <th className="py-2 pr-3">Method</th>
-            <th className="py-2 pr-3 text-right">Amount</th>
-            <th className="py-2 pr-3">Status</th>
-            <th className="py-2 pr-3">Ref / Code</th>
-            {showActions && <th className="py-2 pr-3"></th>}
+        <thead className="text-xs uppercase tracking-widest text-muted-foreground bg-muted/20">
+          <tr className="text-left border-b border-border">
+            <th className="py-2.5 px-4">When</th>
+            <th className="py-2.5 px-3">Donor / Contact</th>
+            <th className="py-2.5 px-3">Category</th>
+            <th className="py-2.5 px-3">Method</th>
+            <th className="py-2.5 px-3 text-right">Amount</th>
+            <th className="py-2.5 px-3">Status</th>
+            <th className="py-2.5 px-3">Ref / Code</th>
+            {showActions && <th className="py-2.5 px-4 text-right">Action</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
           {rows.map((t) => (
-            <tr key={t.id}>
-              <td className="py-2 pr-3 whitespace-nowrap">{timeAgo(t.created_at)}</td>
-              <td className="py-2 pr-3">
-                <div className="font-semibold">{t.is_anonymous ? "Anonymous" : (t.donor_name || t.donor_display_name || "—")}</div>
-                {t.donor_phone && <div className="text-xs text-muted-foreground">{t.donor_phone}</div>}
+            <tr key={t.id} className="hover:bg-muted/10 transition-colors">
+              <td className="py-3 px-4 whitespace-nowrap text-xs text-muted-foreground">
+                {timeAgo(t.created_at)}
               </td>
-              <td className="py-2 pr-3">{t.type === "kit_purchase" ? "Kit" : "Donation"}</td>
-              <td className="py-2 pr-3">{t.payment_method.replace("_", " ")}</td>
-              <td className="py-2 pr-3 text-right font-semibold">{formatUGX(t.amount)}</td>
-              <td className="py-2 pr-3">
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  t.status === "confirmed" ? "bg-primary/10 text-primary" :
-                  t.status === "failed" ? "bg-destructive/10 text-destructive" :
-                  "bg-gold/20 text-foreground"
-                }`}>{t.status}</span>
+              <td className="py-3 px-3">
+                <div className="font-semibold text-foreground">
+                  {t.is_anonymous ? "Anonymous" : t.donor_name || t.donor_display_name || "—"}
+                </div>
+                {t.donor_phone && <div className="text-xs font-mono text-muted-foreground">{t.donor_phone}</div>}
+                {t.donor_email && <div className="text-xs text-muted-foreground truncate max-w-[150px]">{t.donor_email}</div>}
               </td>
-              <td className="py-2 pr-3">
-                <div className="font-mono text-xs">{t.internal_reference}</div>
-                {t.provider_reference && <div className="font-mono text-[10px] text-muted-foreground">{t.provider_reference}</div>}
+              <td className="py-3 px-3 whitespace-nowrap">
+                <span className={`text-xs px-2 py-1 rounded-md font-medium ${
+                  t.type === "kit_purchase" ? "bg-amber-500/10 text-amber-600 border border-amber-500/20" : "bg-blue-500/10 text-blue-600 border border-blue-500/20"
+                }`}>
+                  {t.type === "kit_purchase" ? "🎽 Kit Purchase" : "🎁 Donation"}
+                </span>
+              </td>
+              <td className="py-3 px-3 whitespace-nowrap text-xs capitalize">
+                {t.payment_method.replace("_", " ")}
+              </td>
+              <td className="py-3 px-3 text-right font-semibold text-primary whitespace-nowrap">
+                {formatUGX(t.amount)}
+              </td>
+              <td className="py-3 px-3 whitespace-nowrap">
+                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                  t.status === "confirmed" ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" :
+                  t.status === "failed" ? "bg-rose-500/10 text-rose-600 border border-rose-500/20" :
+                  "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+                }`}>
+                  {t.status === "confirmed" ? "✓ Confirmed" : t.status === "failed" ? "✕ Failed" : "⏳ Pending"}
+                </span>
+              </td>
+              <td className="py-3 px-3 font-mono text-xs">
+                <div className="font-bold text-foreground">{t.internal_reference}</div>
+                {t.provider_reference && (
+                  <div className="text-[10px] text-muted-foreground truncate max-w-[140px]" title={t.provider_reference}>
+                    Code: {t.provider_reference}
+                  </div>
+                )}
               </td>
               {showActions && (
-                <td className="py-2 pr-3 text-right whitespace-nowrap">
-                  <button onClick={() => confirm.mutate(t.id)} className="text-xs bg-primary text-primary-foreground rounded px-2 py-1 mr-2">Confirm</button>
-                  <button onClick={() => reject.mutate(t.id)} className="text-xs text-destructive underline">Reject</button>
+                <td className="py-3 px-4 text-right whitespace-nowrap">
+                  <button
+                    onClick={() => confirm.mutate(t.id)}
+                    className="text-xs bg-primary text-primary-foreground font-semibold rounded-md px-2.5 py-1.5 mr-2 hover:opacity-90 transition-opacity"
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    onClick={() => reject.mutate(t.id)}
+                    className="text-xs text-destructive hover:underline font-medium"
+                  >
+                    Reject
+                  </button>
                 </td>
               )}
             </tr>
@@ -247,11 +501,12 @@ function TxTable({ rows, showActions }: { rows: AdminTx[]; showActions?: boolean
 }
 
 function downloadCsv(rows: AdminTx[]) {
-  const header = ["created_at","reference","provider_code","donor_name","donor_phone","type","method","amount","status","message"];
+  const header = ["created_at","reference","provider_code","donor_name","donor_phone","donor_email","type","method","amount","status","message"];
   const csv = [header.join(",")].concat(rows.map((r) => [
     r.created_at, r.internal_reference, r.provider_reference ?? "",
     (r.is_anonymous ? "Anonymous" : (r.donor_name || r.donor_display_name || "")).replace(/,/g, " "),
     r.donor_phone ?? "",
+    r.donor_email ?? "",
     r.type, r.payment_method, r.amount, r.status, (r.message ?? "").replace(/[\n,]/g, " "),
   ].join(","))).join("\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
