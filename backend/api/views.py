@@ -194,11 +194,10 @@ class InitiatePaymentView(APIView):
                 })
             except Exception as e:
                 logger.error(f"Pesapal payment initiation failed: {e}")
-                # Fallback to local reference
-                return Response({
-                    "reference": ref,
-                    "detail": "Failed to connect to Pesapal. Simulated offline reference generated."
-                })
+                return Response(
+                    {"detail": "Unable to connect to Pesapal payment gateway. Please verify payment settings or try again."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
 class PesapalIPNView(APIView):
     permission_classes = [AllowAny]

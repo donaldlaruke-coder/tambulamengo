@@ -110,19 +110,10 @@ function DonatePage() {
         if (!response.ok) throw new Error(resData.detail || "Initiation failed");
         
         setReference(resData.reference);
-        if (paymentMode === "bank") {
-          setBankDetails({
-            bank_name: resData.bank_name,
-            bank_account_name: resData.bank_account_name,
-            bank_account_number: resData.bank_account_number,
-          });
-          setStep("bank_pending");
+        if (resData.redirect_url) {
+          window.location.href = resData.redirect_url;
         } else {
-          if (resData.redirect_url) {
-            window.location.href = resData.redirect_url;
-          } else {
-            setStep("success");
-          }
+          throw new Error(resData.detail || "No payment URL received from Pesapal gateway.");
         }
         return;
       }
