@@ -130,10 +130,13 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Security & Proxy Settings
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 CSRF_TRUSTED_ORIGINS = [
     'https://tambulamengo.work.gd',
     'https://api.tambulamengo.work.gd',
+    'https://*.work.gd',
     'http://localhost:8080',
     'http://localhost:3000',
     'http://localhost:8000',
