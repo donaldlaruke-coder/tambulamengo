@@ -44,6 +44,7 @@ services:
       - PESAPAL_CONSUMER_KEY=${PESAPAL_CONSUMER_KEY}
       - PESAPAL_CONSUMER_SECRET=${PESAPAL_CONSUMER_SECRET}
       - PESAPAL_SANDBOX=${PESAPAL_SANDBOX}
+      - DATABASE_URL=${DATABASE_URL}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.tambula-backend.rule=Host(`api.tambulamengo.work.gd`)"
