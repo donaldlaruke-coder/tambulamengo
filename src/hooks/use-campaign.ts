@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getBackendUrl } from "@/lib/backend-url";
 
 export type CampaignSettings = {
   id: number;
@@ -37,7 +38,7 @@ export function useCampaign() {
     queryKey: ["campaign"],
     queryFn: async (): Promise<CampaignSettings> => {
       if (import.meta.env.VITE_USE_DJANGO === "true") {
-        const url = `${import.meta.env.VITE_BACKEND_URL || "http://localhost:8000"}/api/campaign/`;
+        const url = `${getBackendUrl()}/api/campaign/`;
         const res = await fetch(url);
         if (!res.ok) throw new Error("Failed to fetch campaign settings");
         return await res.json();
@@ -72,7 +73,7 @@ export function useCampaignStats() {
     queryKey: ["campaign-stats"],
     queryFn: async (): Promise<CampaignStats> => {
       if (import.meta.env.VITE_USE_DJANGO === "true") {
-        const url = `${import.meta.env.VITE_BACKEND_URL || "http://localhost:8000"}/api/stats/`;
+        const url = `${getBackendUrl()}/api/stats/`;
         const res = await fetch(url);
         if (!res.ok) throw new Error("Failed to fetch campaign stats");
         return await res.json();
@@ -106,7 +107,7 @@ export function useLiveDonations(limit = 25, typeFilter?: "donation" | "kit_purc
     queryKey: key,
     queryFn: async (): Promise<PublicTransaction[]> => {
       if (import.meta.env.VITE_USE_DJANGO === "true") {
-        const url = `${import.meta.env.VITE_BACKEND_URL || "http://localhost:8000"}/api/donations/`;
+        const url = `${getBackendUrl()}/api/donations/`;
         const res = await fetch(url);
         if (!res.ok) throw new Error("Failed to fetch live donations");
         const data: PublicTransaction[] = await res.json();

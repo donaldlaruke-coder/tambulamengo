@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatUGX } from "@/lib/format";
+import { getBackendUrl } from "@/lib/backend-url";
 import crest from "@/assets/mengo-badge.jpg.asset.json";
 
 type Kit = {
@@ -30,7 +31,7 @@ function KitsPage() {
     queryKey: ["kits", "active"],
     queryFn: async () => {
       if (import.meta.env.VITE_USE_DJANGO === "true") {
-        const url = `${import.meta.env.VITE_BACKEND_URL || "http://localhost:8000"}/api/kits/`;
+        const url = `${getBackendUrl()}/api/kits/`;
         const res = await fetch(url);
         if (!res.ok) throw new Error("Failed to fetch kits");
         return (await res.json()) as Kit[];

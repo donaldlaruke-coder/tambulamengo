@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
@@ -10,6 +10,7 @@ import {
   generateReference,
   normalizeUgPhone,
 } from "@/lib/format";
+import { getBackendUrl } from "@/lib/backend-url";
 import { getBankTransferDetails, mockConfirmTransaction } from "@/lib/payments.functions";
 
 const searchSchema = z.object({
@@ -54,11 +55,11 @@ function DonatePage() {
   const [reference, setReference] = useState<string>(search.reference ?? "");
   const [busy, setBusy] = useState(false);
   const [txDetails, setTxDetails] = useState<any>(null);
+  const [bankDetails, setBankDetails] = useState<any>(null);
 
   useEffect(() => {
     if (step === "success" && reference) {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "https://api.tambulamengo.work.gd";
-      fetch(`${backendUrl}/api/payments/verify/?reference=${reference}`)
+      fetch(`${getBackendUrl()}/api/payments/verify/?reference=${reference}`)
         .then((res) => res.json())
         .then((data) => {
           if (data && !data.detail) {
@@ -121,7 +122,7 @@ function DonatePage() {
     setBusy(true);
     try {
       if (import.meta.env.VITE_USE_DJANGO === "true") {
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || "http://localhost:8000"}/api/payments/initiate/`, {
+        const response = await fetch(`${getBackendUrl()}/api/payments/initiate/`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
