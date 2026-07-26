@@ -53,6 +53,7 @@ services:
       - "traefik.http.services.tambula-backend.loadbalancer.server.port=8000"
     networks:
       - proxy
+      - db_network
     restart: always
 
 volumes:
@@ -60,4 +61,7 @@ volumes:
 
 networks:
   proxy:
+    external: true
+  db_network:
+    name: database_infra_postgres_default
     external: true
