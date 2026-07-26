@@ -56,7 +56,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-      - "traefik.http.routers.tambula-backend.rule=Host(`api.tambulamengo.work.gd`)"
+      - "traefik.http.routers.tambula-backend.rule=Host(`api.tambulamengo.work.gd`) || (Host(`tambulamengo.work.gd`) && PathPrefix(`/api`))"
       - "traefik.http.routers.tambula-backend.entrypoints=websecure"
       - "traefik.http.routers.tambula-backend.tls=true"
       - "traefik.http.routers.tambula-backend.tls.certresolver=letsencrypt"
