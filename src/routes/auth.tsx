@@ -1,14 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { getBackendUrl } from "@/lib/backend-url";
 import crest from "@/assets/mengo-badge.jpg.asset.json";
 
 export const Route = createFileRoute("/auth")({
+  ssr: false,
   head: () => ({ meta: [{ title: "Staff sign in — Tambula Mengo" }, { name: "robots", content: "noindex" }] }),
   component: AuthPage,
 });
-
-const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 
 function AuthPage() {
   const nav = useNavigate();
@@ -18,10 +18,10 @@ function AuthPage() {
 
   useEffect(() => {
     // Check if already logged in
-    fetch(`${BACKEND}/api/admin-api/me/`, { credentials: "include" })
-      .then((r) => r.json())
+    fetch(`${getBackendUrl()}/api/admin-api/me/`, { credentials: "include" })
+      .then((r) => r.ok ? r.json() : null)
       .then((d) => {
-        if (d.authenticated && d.is_staff) nav({ to: "/admin" });
+        if (d && d.authenticated && d.is_staff) nav({ to: "/admin" });
       })
       .catch(() => {});
   }, [nav]);
@@ -30,7 +30,7 @@ function AuthPage() {
     e.preventDefault();
     setBusy(true);
     try {
-      const res = await fetch(`${BACKEND}/api/admin-api/login/`, {
+      const res = await fetch(`${getBackendUrl()}/api/admin-api/login/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

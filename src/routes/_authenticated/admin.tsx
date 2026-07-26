@@ -3,14 +3,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { formatUGX, timeAgo } from "@/lib/format";
+import { getBackendUrl } from "@/lib/backend-url";
 import { PickupStation } from "@/components/tambula/PickupStation";
 
 export const Route = createFileRoute("/_authenticated/admin")({
+  ssr: false,
   head: () => ({ meta: [{ title: "Admin — Tambula Mengo" }, { name: "robots", content: "noindex" }] }),
   component: Admin,
 });
-
-const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 
 type AdminTx = {
   id: string; internal_reference: string; provider_reference?: string; amount: number; type: string;
@@ -28,9 +28,14 @@ function Admin() {
   const isAdminQ = useQuery({
     queryKey: ["is-admin"],
     queryFn: async () => {
-      const res = await fetch(`${BACKEND}/api/admin-api/me/`, { credentials: "include" });
-      const data = await res.json();
-      return !!(data.authenticated && data.is_staff);
+      try {
+        const res = await fetch(`${getBackendUrl()}/api/admin-api/me/`, { credentials: "include" });
+        if (!res.ok) return false;
+        const data = await res.json();
+        return !!(data.authenticated && data.is_staff);
+      } catch {
+        return false;
+      }
     },
   });
 
@@ -38,7 +43,7 @@ function Admin() {
     queryKey: ["admin-stats"],
     enabled: !!isAdminQ.data,
     queryFn: async () => {
-      const res = await fetch(`${BACKEND}/api/admin-api/stats/`, { credentials: "include" });
+      const res = await fetch(`${getBackendUrl()}/api/admin-api/stats/`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load stats");
       return res.json() as Promise<{
         total_raised: number; donor_count: number; donation_count: number;
@@ -51,14 +56,16 @@ function Admin() {
     queryKey: ["admin-txs"],
     enabled: !!isAdminQ.data,
     queryFn: async () => {
-      const res = await fetch(`${BACKEND}/api/admin-api/transactions/`, { credentials: "include" });
+      const res = await fetch(`${getBackendUrl()}/api/admin-api/transactions/`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load transactions");
       return res.json() as Promise<AdminTx[]>;
     },
   });
 
   async function signOut() {
-    await fetch(`${BACKEND}/api/admin-api/logout/`, { method: "POST", credentials: "include" });
+    try {
+      await fetch(`${getBackendUrl()}/api/admin-api/logout/`, { method: "POST", credentials: "include" });
+    } catch {}
     nav({ to: "/auth" });
   }
 
@@ -86,7 +93,7 @@ function Admin() {
         </div>
         <div className="flex gap-2">
           <a
-            href={`${BACKEND}/api/admin/`}
+            href={`${getBackendUrl()}/api/admin/`}
             target="_blank"
             rel="noopener noreferrer"
             className="btn-outline !min-h-0 !py-2 !px-4 text-sm"
@@ -166,7 +173,7 @@ function TxTable({ rows, showActions }: { rows: AdminTx[]; showActions?: boolean
   const qc = useQueryClient();
   const confirm = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${BACKEND}/api/admin-api/confirm/`, {
+      const res = await fetch(`${getBackendUrl()}/api/admin-api/confirm/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -184,7 +191,7 @@ function TxTable({ rows, showActions }: { rows: AdminTx[]; showActions?: boolean
 
   const reject = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${BACKEND}/api/admin-api/reject/`, {
+      const res = await fetch(`${getBackendUrl()}/api/admin-api/reject/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -520,7 +527,7 @@ function KitsAdmin() {
   const { data } = useQuery({
     queryKey: ["admin-kits"],
     queryFn: async () => {
-      const res = await fetch(`${BACKEND}/api/admin-api/kits/`, { credentials: "include" });
+      const res = await fetch(`${getBackendUrl()}/api/admin-api/kits/`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load kits");
       return res.json() as Promise<Kit[]>;
     },
@@ -529,7 +536,7 @@ function KitsAdmin() {
   const [desc, setDesc] = useState(""); const [sizes, setSizes] = useState("S,M,L,XL");
   const add = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${BACKEND}/api/admin-api/kits/`, {
+      const res = await fetch(`${getBackendUrl()}/api/admin-api/kits/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -546,7 +553,7 @@ function KitsAdmin() {
 
   const toggle = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const res = await fetch(`${BACKEND}/api/admin-api/kit-toggle/`, {
+      const res = await fetch(`${getBackendUrl()}/api/admin-api/kit-toggle/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -595,7 +602,7 @@ function CampaignAdmin() {
   const { data } = useQuery({
     queryKey: ["admin-campaign"],
     queryFn: async () => {
-      const res = await fetch(`${BACKEND}/api/admin-api/campaign/`, { credentials: "include" });
+      const res = await fetch(`${getBackendUrl()}/api/admin-api/campaign/`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load campaign settings");
       return res.json();
     },
@@ -613,7 +620,7 @@ function CampaignAdmin() {
 
   const save = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${BACKEND}/api/admin-api/campaign/`, {
+      const res = await fetch(`${getBackendUrl()}/api/admin-api/campaign/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
