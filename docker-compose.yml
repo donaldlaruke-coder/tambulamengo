@@ -26,6 +26,7 @@ services:
       - SUPABASE_URL=${SUPABASE_URL}
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
       - "traefik.http.routers.tambula-frontend.rule=Host(`tambulamengo.work.gd`)"
       - "traefik.http.routers.tambula-frontend.entrypoints=websecure"
       - "traefik.http.routers.tambula-frontend.tls=true"
@@ -51,6 +52,7 @@ services:
       - DATABASE_URL=${DATABASE_URL}
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
       - "traefik.http.routers.tambula-backend.rule=Host(`api.tambulamengo.work.gd`)"
       - "traefik.http.routers.tambula-backend.entrypoints=websecure"
       - "traefik.http.routers.tambula-backend.tls=true"
