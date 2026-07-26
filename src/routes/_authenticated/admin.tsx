@@ -250,7 +250,7 @@ function downloadCsv(rows: AdminTx[]) {
   const header = ["created_at","reference","provider_code","donor_name","donor_phone","type","method","amount","status","message"];
   const csv = [header.join(",")].concat(rows.map((r) => [
     r.created_at, r.internal_reference, r.provider_reference ?? "",
-    (r.is_anonymous ? "Anonymous" : (r.donor_name || r.donor_display_name ?? "")).replace(/,/g, " "),
+    (r.is_anonymous ? "Anonymous" : (r.donor_name || r.donor_display_name || "")).replace(/,/g, " "),
     r.donor_phone ?? "",
     r.type, r.payment_method, r.amount, r.status, (r.message ?? "").replace(/[\n,]/g, " "),
   ].join(","))).join("\n");
