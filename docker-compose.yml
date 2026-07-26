@@ -36,7 +36,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     volumes:
-      - db-data:/app
+      - db-data:/app/db-data
     environment:
       - DEBUG=False
       - SECRET_KEY=${DJANGO_SECRET_KEY:-change-me-in-production-12345}
