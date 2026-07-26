@@ -129,6 +129,16 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# Security & Proxy Settings
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+CSRF_TRUSTED_ORIGINS = [
+    'https://tambulamengo.work.gd',
+    'https://api.tambulamengo.work.gd',
+    'http://localhost:8080',
+    'http://localhost:3000',
+    'http://localhost:8000',
+]
+
 # CORS Configuration
 CORS_ALLOW_ALL_ORIGINS = True  # In local dev, allow React frontend to connect
 
