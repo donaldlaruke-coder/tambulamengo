@@ -53,6 +53,36 @@ function DonatePage() {
   const [step, setStep] = useState<Step>(search.status === "success" ? "success" : "details");
   const [reference, setReference] = useState<string>(search.reference ?? "");
   const [busy, setBusy] = useState(false);
+  const [txDetails, setTxDetails] = useState<any>(null);
+
+  useEffect(() => {
+    if (step === "success" && reference) {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "https://api.tambulamengo.work.gd";
+      fetch(`${backendUrl}/api/payments/verify/?reference=${reference}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && !data.detail) {
+            setTxDetails(data);
+          }
+        })
+        .catch((err) => console.error("Error fetching transaction details:", err));
+    }
+  }, [step, reference]);
+
+  const qrPayload = useMemo(() => {
+    if (!reference) return "";
+    const payload = {
+      ref: reference,
+      trans_id: txDetails?.provider_reference || txDetails?.confirmation_code || reference,
+      confirmation_code: txDetails?.confirmation_code || reference,
+      type: txDetails?.type_display || (isKitFlow ? "Kit Purchase" : "Donation"),
+      name: txDetails?.donor_name || name || "Anonymous",
+      phone: txDetails?.donor_phone || phone || "N/A",
+      amount: txDetails?.amount ? formatUGX(txDetails.amount) : formatUGX(amount),
+      time: txDetails?.confirmed_at || txDetails?.created_at || new Date().toISOString()
+    };
+    return JSON.stringify(payload);
+  }, [reference, txDetails, isKitFlow, name, phone, amount]);
 
   const network = useMemo(() => detectUgNetwork(phone), [phone]);
   const normalized = useMemo(() => normalizeUgPhone(phone), [phone]);
@@ -440,28 +470,45 @@ function DonatePage() {
       )}
 
       {step === "success" && (
-        <div className="text-center py-10 space-y-5">
+        <div className="text-center py-8 space-y-6">
           <div className="mx-auto h-20 w-20 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-4xl">✓</div>
           <h2 className="text-3xl font-serif font-bold text-primary">
-            {isKitFlow ? "Kit reserved!" : "Thank you!"}
+            {isKitFlow ? "Kit Payment Confirmed!" : "Donation Confirmed!"}
           </h2>
           <p className="text-lg">
-            {isKitFlow ? "Your payment of" : "Your gift of"} <strong>{formatUGX(amount)}</strong> is confirmed.
+            {isKitFlow ? "Your payment of" : "Your gift of"}{" "}
+            <strong>{txDetails?.amount ? formatUGX(txDetails.amount) : formatUGX(amount)}</strong> has been received.
           </p>
-          {isKitFlow ? (
-            <div className="card-heritage p-6 max-w-sm mx-auto">
-              <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Pickup pass</div>
-              <div className="inline-block bg-white p-3 rounded-lg">
-                <QRCodeSVG value={reference} size={200} level="M" />
-              </div>
-              <div className="mt-3 font-mono text-sm">{reference}</div>
-              <p className="text-xs text-muted-foreground mt-3">
-                Screenshot this and show it at the school pavilion to collect your kit.
-              </p>
+
+          <div className="card-heritage p-6 max-w-md mx-auto space-y-4 text-left">
+            <div className="text-xs uppercase tracking-widest text-muted-foreground text-center mb-1">
+              Official Digital Receipt & QR Pass
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Reference: {reference}</p>
-          )}
+
+            <div className="flex justify-center bg-white p-4 rounded-xl border border-border">
+              <QRCodeSVG value={qrPayload || reference} size={220} level="M" />
+            </div>
+
+            <dl className="divide-y divide-border text-sm pt-2">
+              <Row label="Payer Name" value={txDetails?.donor_name || name || "Anonymous"} />
+              <Row label="Phone Number" value={txDetails?.donor_phone || phone || "N/A"} />
+              <Row label="Payment Type" value={txDetails?.type_display || (isKitFlow ? "Kit Purchase" : "Donation")} />
+              <Row label="Amount Paid" value={txDetails?.amount ? formatUGX(txDetails.amount) : formatUGX(amount)} highlight />
+              <Row label="Reference (Ref)" value={reference} />
+              <Row label="Transaction ID / Code" value={txDetails?.provider_reference || txDetails?.confirmation_code || "Pesapal Confirmed"} />
+              <Row 
+                label="Date & Time" 
+                value={txDetails?.confirmed_at ? new Date(txDetails.confirmed_at).toLocaleString() : new Date().toLocaleString()} 
+              />
+            </dl>
+
+            <p className="text-xs text-muted-foreground text-center pt-2">
+              {isKitFlow 
+                ? "Please screenshot or save this QR code pass to present at the school pavilion during kit collection." 
+                : "Thank you for supporting Tambula Mengo! Keep this receipt for your records."}
+            </p>
+          </div>
+
           <div className="flex flex-wrap justify-center gap-3 pt-2">
             <Link to="/donations" className="btn-primary">See the live board</Link>
             <Link to="/" className="btn-outline">Back to home</Link>

@@ -39,13 +39,23 @@ export function PickupStation() {
     enabled: submitted.length > 2,
     queryFn: async (): Promise<PickupOrder | null> => {
       const raw = submitted.trim();
+      let refToSearch = raw.toUpperCase();
+      const match = raw.match(/(KIT|TM)-[A-Z0-9]{4}-[A-Z0-9]{4}/i);
+      if (match) {
+        refToSearch = match[0].toUpperCase();
+      } else {
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed.ref) refToSearch = parsed.ref.toUpperCase();
+        } catch {}
+      }
       const phone = normalizeUgPhone(raw);
       // 1. Try exact reference match
       const byRef = await supabase
         .from("transactions")
         .select(SELECT)
         .eq("type", "kit_purchase")
-        .eq("internal_reference", raw.toUpperCase())
+        .eq("internal_reference", refToSearch)
         .maybeSingle();
       if (byRef.data) return byRef.data as unknown as PickupOrder;
       // 2. Try phone lookup via donors

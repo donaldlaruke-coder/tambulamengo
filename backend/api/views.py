@@ -276,19 +276,55 @@ class PesapalCallbackView(APIView):
         frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:8080')
         return redirect(f"{frontend_url}/donate?reference={merchant_ref}&status={payment_status}")
 
-class MockConfirmTransactionView(APIView):
+class VerifyTransactionView(APIView):
     permission_classes = [AllowAny]
 
-    def post(self, request):
-        # Used for offline testing / mock confirm without actual Pesapal redirects
-        ref = request.data.get("internal_reference")
+    def get(self, request):
+        reference = request.query_params.get("reference")
+        if not reference:
+            return Response({"detail": "Reference parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
         try:
-            tx = Transaction.objects.get(internal_reference=ref)
-            if tx.status == 'pending':
-                tx.status = 'confirmed'
-                tx.confirmed_at = timezone.now()
-                tx.save()
-                return Response({"status": "confirmed"})
-            return Response({"status": tx.status})
+            tx = Transaction.objects.get(internal_reference=reference)
+            donor = tx.donor
+            
+            # Fetch kit order items if kit purchase
+            items = []
+            if tx.type == 'kit_purchase':
+                for item in tx.order_items.all():
+                    items.append({
+                        "kit_name": item.kit_product.name if item.kit_product else "Run Kit",
+                        "size": item.size,
+                        "quantity": item.quantity,
+                        "unit_price": item.unit_price,
+                        "fulfillment_status": item.fulfillment_status,
+                        "picked_up_at": item.picked_up_at.isoformat() if item.picked_up_at else None
+                    })
+
+            donor_name = tx.donor_display_name or (donor.name if donor else None) or "Anonymous"
+            donor_phone = donor.phone if donor else None
+            donor_email = donor.email if donor else None
+
+            type_display = "Kit Purchase" if tx.type == 'kit_purchase' else "Donation"
+            confirmation_code = tx.provider_reference or tx.internal_reference
+
+            return Response({
+                "reference": tx.internal_reference,
+                "type": tx.type,
+                "type_display": type_display,
+                "status": tx.status,
+                "amount": tx.amount,
+                "currency": tx.currency,
+                "payment_method": tx.payment_method,
+                "provider_reference": tx.provider_reference,
+                "confirmation_code": confirmation_code,
+                "donor_name": donor_name,
+                "donor_phone": donor_phone,
+                "donor_email": donor_email,
+                "message": tx.message,
+                "created_at": tx.created_at.isoformat(),
+                "confirmed_at": tx.confirmed_at.isoformat() if tx.confirmed_at else None,
+                "items": items
+            })
         except Transaction.DoesNotExist:
             return Response({"detail": "Transaction not found"}, status=status.HTTP_404_NOT_FOUND)

@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     CampaignSettingsView, KitProductListView, CampaignStatsView,
     LiveDonationsListView, InitiatePaymentView, PesapalIPNView,
-    PesapalCallbackView, MockConfirmTransactionView
+    PesapalCallbackView, VerifyTransactionView
 )
 
 urlpatterns = [
@@ -11,7 +11,8 @@ urlpatterns = [
     path('stats/', CampaignStatsView.as_view(), name='campaign-stats'),
     path('donations/', LiveDonationsListView.as_view(), name='live-donations'),
     path('payments/initiate/', InitiatePaymentView.as_view(), name='initiate-payment'),
+    path('payments/verify/', VerifyTransactionView.as_view(), name='verify-payment'),
     path('payments/pesapal-ipn/', PesapalIPNView.as_view(), name='pesapal-ipn'),
     path('payments/pesapal-callback/', PesapalCallbackView.as_view(), name='pesapal-callback'),
-    path('payments/mock-confirm/', MockConfirmTransactionView.as_view(), name='mock-confirm'),
 ]
+
