@@ -6,6 +6,9 @@ from django.conf import settings
 from django.utils import timezone
 from django.db import transaction as db_transaction
 from django.shortcuts import redirect
+from django.contrib.auth import authenticate, login, logout
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status, generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -328,3 +331,212 @@ class VerifyTransactionView(APIView):
             })
         except Transaction.DoesNotExist:
             return Response({"detail": "Transaction not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+# ───────────────────── Admin API Views ─────────────────────
+
+@method_decorator(csrf_exempt, name='dispatch')
+class AdminLoginView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)
+            return Response({'success': True, 'username': user.username, 'is_staff': user.is_staff})
+        return Response({'detail': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class AdminLogoutView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        logout(request)
+        return Response({'success': True})
+
+
+class AdminMeView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        if request.user.is_authenticated:
+            return Response({
+                'authenticated': True,
+                'username': request.user.username,
+                'is_staff': request.user.is_staff
+            })
+        return Response({'authenticated': False})
+
+
+class AdminStatsView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return Response({'detail': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+
+        confirmed = Transaction.objects.filter(status='confirmed')
+        total_raised = sum(t.amount for t in confirmed)
+        donor_count = confirmed.values('donor_id').distinct().count()
+        donation_count = confirmed.count()
+        average_donation = int(total_raised / donation_count) if donation_count > 0 else 0
+        kit_orders_count = confirmed.filter(type='kit_purchase').count()
+        pending_count = Transaction.objects.filter(status='pending').count()
+
+        return Response({
+            'total_raised': total_raised,
+            'donor_count': donor_count,
+            'donation_count': donation_count,
+            'average_donation': average_donation,
+            'kit_orders_count': kit_orders_count,
+            'pending_count': pending_count,
+        })
+
+
+class AdminTransactionsView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return Response({'detail': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+
+        txs = Transaction.objects.select_related('donor').order_by('-created_at')[:500]
+        result = []
+        for t in txs:
+            result.append({
+                'id': str(t.id),
+                'internal_reference': t.internal_reference,
+                'provider_reference': t.provider_reference,
+                'amount': t.amount,
+                'type': t.type,
+                'payment_method': t.payment_method,
+                'status': t.status,
+                'message': t.message,
+                'is_anonymous': t.is_anonymous,
+                'donor_display_name': t.donor_display_name,
+                'donor_name': t.donor.name if t.donor else None,
+                'donor_phone': t.donor.phone if t.donor else None,
+                'donor_email': t.donor.email if t.donor else None,
+                'created_at': t.created_at.isoformat(),
+                'confirmed_at': t.confirmed_at.isoformat() if t.confirmed_at else None,
+            })
+        return Response(result)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class AdminConfirmTransactionView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return Response({'detail': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        tx_id = request.data.get('id')
+        try:
+            tx = Transaction.objects.get(id=tx_id)
+            tx.status = 'confirmed'
+            tx.confirmed_at = timezone.now()
+            tx.save()
+            return Response({'success': True})
+        except Transaction.DoesNotExist:
+            return Response({'detail': 'Transaction not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class AdminRejectTransactionView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return Response({'detail': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        tx_id = request.data.get('id')
+        try:
+            tx = Transaction.objects.get(id=tx_id)
+            tx.status = 'failed'
+            tx.save()
+            return Response({'success': True})
+        except Transaction.DoesNotExist:
+            return Response({'detail': 'Transaction not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class AdminKitsView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return Response({'detail': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        kits = KitProduct.objects.order_by('created_at')
+        result = [{
+            'id': str(k.id), 'name': k.name, 'description': k.description,
+            'price': k.price, 'size_options': k.size_options, 'stock': k.stock, 'active': k.active
+        } for k in kits]
+        return Response(result)
+
+    def post(self, request):
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return Response({'detail': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        KitProduct.objects.create(
+            name=request.data.get('name', 'Run Kit'),
+            description=request.data.get('description'),
+            price=int(request.data.get('price', 30000)),
+            size_options=request.data.get('size_options', []),
+        )
+        return Response({'success': True}, status=status.HTTP_201_CREATED)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class AdminKitToggleView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return Response({'detail': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        kit_id = request.data.get('id')
+        active = request.data.get('active', True)
+        try:
+            kit = KitProduct.objects.get(id=kit_id)
+            kit.active = active
+            kit.save()
+            return Response({'success': True})
+        except KitProduct.DoesNotExist:
+            return Response({'detail': 'Kit not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class AdminCampaignView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return Response({'detail': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        campaign = CampaignSettings.objects.filter(id=1).first()
+        if not campaign:
+            return Response({'detail': 'Not configured'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({
+            'campaign_name': campaign.campaign_name, 'tagline': campaign.tagline,
+            'story': campaign.story, 'goal_amount': campaign.goal_amount,
+            'event_date': str(campaign.event_date), 'event_details': campaign.event_details,
+            'bank_name': campaign.bank_name, 'bank_account_name': campaign.bank_account_name,
+            'bank_account_number': campaign.bank_account_number,
+        })
+
+    def post(self, request):
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return Response({'detail': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        campaign, _ = CampaignSettings.objects.get_or_create(id=1, defaults={
+            'goal_amount': 0, 'event_date': '2026-01-01'
+        })
+        d = request.data
+        for field in ['campaign_name', 'tagline', 'story', 'event_details',
+                       'bank_name', 'bank_account_name', 'bank_account_number']:
+            if field in d:
+                setattr(campaign, field, d[field])
+        if 'goal_amount' in d:
+            campaign.goal_amount = int(d['goal_amount'])
+        if 'event_date' in d:
+            campaign.event_date = d['event_date']
+        campaign.save()
+        return Response({'success': True})

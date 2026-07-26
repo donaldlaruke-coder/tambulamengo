@@ -143,7 +143,14 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # CORS Configuration
-CORS_ALLOW_ALL_ORIGINS = True  # In local dev, allow React frontend to connect
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
+# Session & CSRF cookie configuration for cross-origin admin auth
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
 
 # REST Framework Configuration
 REST_FRAMEWORK = {
