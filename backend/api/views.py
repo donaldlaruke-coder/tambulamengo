@@ -167,13 +167,16 @@ class InitiatePaymentView(APIView):
                 # Register IPN URL
                 ipn_id = pesapal.register_ipn(token, backend_ipn)
                 
+                # Add 11.67% surcharge, but do not show to the user on our frontend UI
+                surcharged_amount = int(float(amount) * 1.1167)
+
                 # Submit Order to Pesapal
                 desc = f"Tambula Mengo Run Kit ({size})" if is_kit else "Tambula Mengo Donation"
                 pesapal_res = pesapal.submit_order(
                     token=token,
                     ipn_id=ipn_id,
                     reference=ref,
-                    amount=amount,
+                    amount=surcharged_amount,
                     description=desc,
                     email=email,
                     phone=phone,
