@@ -9,7 +9,7 @@ def get_base_url():
     if is_sandbox:
         return "https://cybspay.pesapal.com/pesapalv3/api"
     else:
-        return "https://payg.pesapal.com/v3/api"
+        return "https://pay.pesapal.com/v3/api"
 
 def get_auth_token():
     """
@@ -41,7 +41,7 @@ def register_ipn(token, callback_url):
     """
     Register IPN Notification URL with Pesapal and return IPN ID.
     """
-    url = f"{get_base_url()}/URLRegister/RegisterIPN"
+    url = f"{get_base_url()}/URLSetup/RegisterIPN"
     headers = {
         "Content-Type": "application/json",
         "Accept": "application/json",
