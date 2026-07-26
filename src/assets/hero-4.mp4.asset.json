@@ -2,10 +2,12 @@
   "version": 1,
   "asset_id": "4164460d-96e3-4e91-9ad1-a9f7151f10ff",
   "project_id": "f24d6fd1-94d5-4ac9-be10-0a81e3e1c5fd",
-  "url": "/__l5e/assets-v1/4164460d-96e3-4e91-9ad1-a9f7151f10ff/hero-4.mp4",
+  "url": "https://res.cloudinary.com/duquetzay/video/upload/v1785055386/tambulamengo/hero-4.mp4",
   "r2_key": "a/v1/f24d6fd1-94d5-4ac9-be10-0a81e3e1c5fd/4164460d-96e3-4e91-9ad1-a9f7151f10ff/hero-4.mp4",
   "original_filename": "hero-4.mp4",
   "size": 2622907,
   "content_type": "video/mp4",
-  "created_at": "2026-07-20T19:09:32Z"
+  "created_at": "2026-07-20T19:09:32Z",
+  "cloudinary_public_id": "tambulamengo/hero-4",
+  "cloudinary_url": "https://res.cloudinary.com/duquetzay/video/upload/v1785055386/tambulamengo/hero-4.mp4"
 }

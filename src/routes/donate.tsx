@@ -17,6 +17,8 @@ const searchSchema = z.object({
   kit: z.string().optional(),
   size: z.string().optional(),
   qty: z.number().optional(),
+  status: z.string().optional(),
+  reference: z.string().optional(),
 });
 
 export const Route = createFileRoute("/donate")({
@@ -45,10 +47,11 @@ function DonatePage() {
   const [showName, setShowName] = useState(false);
   const [anonymous, setAnonymous] = useState(false);
   const [message, setMessage] = useState("");
-  const [payByBank, setPayByBank] = useState(false);
+  const [paymentMode, setPaymentMode] = useState<"mobile" | "card" | "bank">("mobile");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [step, setStep] = useState<Step>("details");
-  const [reference, setReference] = useState<string>("");
+  const [step, setStep] = useState<Step>(search.status === "success" ? "success" : "details");
+  const [reference, setReference] = useState<string>(search.reference ?? "");
   const [busy, setBusy] = useState(false);
   const [bankDetails, setBankDetails] = useState<{
     bank_name: string | null;
@@ -58,16 +61,20 @@ function DonatePage() {
 
   const network = useMemo(() => detectUgNetwork(phone), [phone]);
   const normalized = useMemo(() => normalizeUgPhone(phone), [phone]);
-  const method: Method = payByBank ? "bank" : network ?? "mtn_momo";
-  const isMobileMoney = method !== "bank";
+  const method = paymentMode === "bank" ? "bank" : paymentMode === "card" ? "card" : (network ?? "mtn_momo");
+  const isMobileMoney = paymentMode === "mobile";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (isKitFlow && !name.trim()) {
+      toast.error("Please enter your name to complete your kit purchase.");
+      return;
+    }
     if (amount < 500) {
       toast.error("Minimum donation is UGX 500");
       return;
     }
-    if (isMobileMoney) {
+    if (paymentMode === "mobile") {
       if (!normalized) {
         toast.error("Enter a valid Uganda mobile number (e.g. 0772 123 456)");
         return;
@@ -76,11 +83,57 @@ function DonatePage() {
         toast.error("This number isn't MTN or Airtel. Pay by bank instead?");
         return;
       }
+    } else if (paymentMode === "card") {
+      if (!email.trim() || !email.includes("@")) {
+        toast.error("Please enter a valid email address.");
+        return;
+      }
+      if (!phone.trim()) {
+        toast.error("Please enter a contact phone number.");
+        return;
+      }
     }
     setBusy(true);
     try {
+      if (import.meta.env.VITE_USE_DJANGO === "true") {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || "http://localhost:8000"}/api/payments/initiate/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount,
+            name: name || "Anonymous",
+            phone: normalized || phone,
+            email: email || null,
+            payment_mode: paymentMode,
+            kit_id: isKitFlow ? search.kit : null,
+            size: isKitFlow ? search.size : null,
+            qty: isKitFlow ? search.qty : null,
+            message: message || null
+          })
+        });
+        const resData = await response.json();
+        if (!response.ok) throw new Error(resData.detail || "Initiation failed");
+        
+        setReference(resData.reference);
+        if (paymentMode === "bank") {
+          setBankDetails({
+            bank_name: resData.bank_name,
+            bank_account_name: resData.bank_account_name,
+            bank_account_number: resData.bank_account_number,
+          });
+          setStep("bank_pending");
+        } else {
+          if (resData.redirect_url) {
+            window.location.href = resData.redirect_url;
+          } else {
+            setStep("success");
+          }
+        }
+        return;
+      }
+      const actualAnonymous = isKitFlow ? false : anonymous;
       let donorId: string | null = null;
-      if (!anonymous && (name || normalized)) {
+      if (!actualAnonymous && (name || normalized)) {
         const { data: donor, error: dErr } = await supabase
           .from("donors")
           .insert({ name: name || null, phone: normalized || null })
@@ -99,8 +152,8 @@ function DonatePage() {
         status: "pending",
         internal_reference: ref,
         message: message || null,
-        is_anonymous: anonymous,
-        donor_display_name: anonymous ? null : name || null,
+        is_anonymous: actualAnonymous,
+        donor_display_name: actualAnonymous ? null : name || null,
       });
       if (tErr) throw tErr;
       setReference(ref);
@@ -222,46 +275,162 @@ function DonatePage() {
           )}
 
           <div className="card-heritage p-5">
-            <label htmlFor="phone" className="block text-sm font-semibold mb-2">
-              Your mobile money number
-            </label>
-            <div className="relative">
-              <input
-                id="phone"
-                type="tel"
-                autoComplete="tel"
-                inputMode="tel"
-                value={phone}
-                onChange={(e) => { setPhone(e.target.value); if (payByBank) setPayByBank(false); }}
-                placeholder="0772 123 456"
-                className="w-full rounded-lg border-2 border-input bg-background px-4 py-4 text-xl font-semibold tracking-wide focus:border-primary outline-none"
-              />
-              {network && !payByBank && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold uppercase tracking-widest bg-primary text-primary-foreground rounded-full px-3 py-1">
-                  {network === "mtn_momo" ? "MTN" : "Airtel"}
-                </span>
-              )}
+            <label className="block text-sm font-semibold mb-3">Choose Payment Method</label>
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => setPaymentMode("mobile")}
+                className={`min-h-12 rounded-lg border-2 font-semibold text-xs transition-all ${
+                  paymentMode === "mobile"
+                    ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                    : "border-border bg-background hover:border-primary/40 text-muted-foreground"
+                }`}
+              >
+                Mobile Money
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMode("card")}
+                className={`min-h-12 rounded-lg border-2 font-semibold text-xs transition-all ${
+                  paymentMode === "card"
+                    ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                    : "border-border bg-background hover:border-primary/40 text-muted-foreground"
+                }`}
+              >
+                Bank Card
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMode("bank")}
+                className={`min-h-12 rounded-lg border-2 font-semibold text-xs transition-all ${
+                  paymentMode === "bank"
+                    ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                    : "border-border bg-background hover:border-primary/40 text-muted-foreground"
+                }`}
+              >
+                Bank Transfer
+              </button>
             </div>
-            <div className="mt-2 min-h-5 text-xs">
-              {payByBank ? (
-                <span className="text-primary font-medium">Paying by bank — details on the next screen.</span>
-              ) : phone && !normalized ? (
-                <span className="text-destructive">Doesn't look like a Uganda number yet.</span>
-              ) : phone && normalized && !network ? (
-                <span className="text-muted-foreground">Not MTN or Airtel.{" "}
-                  <button type="button" onClick={() => setPayByBank(true)} className="underline text-primary font-medium">
-                    Pay by bank instead
-                  </button>
-                </span>
-              ) : network ? (
-                <span className="text-muted-foreground">We'll send an {network === "mtn_momo" ? "MTN MoMo" : "Airtel Money"} prompt — enter your PIN to confirm.</span>
-              ) : (
-                <span className="text-muted-foreground">MTN or Airtel — we auto-detect.</span>
-              )}
-            </div>
+
+            {paymentMode === "mobile" && (
+              <div className="space-y-2">
+                <label htmlFor="phone" className="block text-sm font-semibold mb-2">
+                  Your mobile money number
+                </label>
+                <div className="relative">
+                  <input
+                    id="phone"
+                    type="tel"
+                    autoComplete="tel"
+                    inputMode="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="0772 123 456"
+                    className="w-full rounded-lg border-2 border-input bg-background px-4 py-4 text-xl font-semibold tracking-wide focus:border-primary outline-none"
+                    required
+                  />
+                  {network && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold uppercase tracking-widest bg-primary text-primary-foreground rounded-full px-3 py-1">
+                      {network === "mtn_momo" ? "MTN" : "Airtel"}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2 min-h-5 text-xs text-muted-foreground">
+                  {phone && !normalized ? (
+                    <span className="text-destructive">Doesn't look like a Uganda number yet.</span>
+                  ) : network ? (
+                    <span>We will redirect you to Pesapal Mobile Money payment portal.</span>
+                  ) : (
+                    <span>MTN or Airtel — we auto-detect.</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {paymentMode === "card" && (
+              <div className="space-y-4">
+                <div className="text-xs text-muted-foreground">
+                  Pay securely using Visa, Mastercard, or UnionPay via Pesapal.
+                </div>
+                <div>
+                  <label htmlFor="card-phone" className="block text-sm font-semibold mb-1">
+                    Contact Phone Number <span className="text-destructive font-semibold">(required)</span>
+                  </label>
+                  <input
+                    id="card-phone"
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="e.g. 0772 123 456"
+                    className="w-full rounded-lg border border-input bg-background px-4 py-3"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="card-email" className="block text-sm font-semibold mb-1">
+                    Contact Email <span className="text-destructive font-semibold">(required)</span>
+                  </label>
+                  <input
+                    id="card-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="e.g. jane.doe@example.com"
+                    className="w-full rounded-lg border border-input bg-background px-4 py-3"
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            {paymentMode === "bank" && (
+              <div className="text-sm text-muted-foreground py-2">
+                You will receive our bank transfer account details on the next page to make a manual transfer.
+              </div>
+            )}
           </div>
 
-          {!showName ? (
+          {isKitFlow || showName ? (
+            <div className="card-heritage p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold mb-1">
+                  Your name{" "}
+                  {isKitFlow ? (
+                    <span className="text-destructive font-semibold">(required)</span>
+                  ) : (
+                    <span className="text-muted-foreground font-normal">(optional)</span>
+                  )}
+                </label>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={!isKitFlow && anonymous}
+                  placeholder="e.g. Jane N."
+                  className="w-full rounded-lg border border-input bg-background px-4 py-3 disabled:opacity-50"
+                  required={isKitFlow}
+                />
+              </div>
+              {!isKitFlow && (
+                <>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1">Message <span className="text-muted-foreground font-normal">(optional)</span></label>
+                    <textarea
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      maxLength={200}
+                      rows={2}
+                      placeholder="Say something to Mengo…"
+                      className="w-full rounded-lg border border-input bg-background px-4 py-3"
+                    />
+                  </div>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={anonymous} onChange={(e) => setAnonymous(e.target.checked)} className="h-5 w-5 accent-[oklch(0.38_0.13_20)]" />
+                    <span className="text-sm">Give anonymously</span>
+                  </label>
+                </>
+              )}
+            </div>
+          ) : (
             <button
               type="button"
               onClick={() => setShowName(true)}
@@ -269,50 +438,12 @@ function DonatePage() {
             >
               + Add your name or a message
             </button>
-          ) : (
-            <div className="card-heritage p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold mb-1">Your name <span className="text-muted-foreground font-normal">(optional)</span></label>
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={anonymous}
-                  placeholder="e.g. Jane N."
-                  className="w-full rounded-lg border border-input bg-background px-4 py-3 disabled:opacity-50"
-                />
-              </div>
-              {!isKitFlow && (
-                <div>
-                  <label className="block text-sm font-semibold mb-1">Message <span className="text-muted-foreground font-normal">(optional)</span></label>
-                  <textarea
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    maxLength={200}
-                    rows={2}
-                    placeholder="Say something to Mengo…"
-                    className="w-full rounded-lg border border-input bg-background px-4 py-3"
-                  />
-                </div>
-              )}
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={anonymous} onChange={(e) => setAnonymous(e.target.checked)} className="h-5 w-5 accent-[oklch(0.38_0.13_20)]" />
-                <span className="text-sm">Give anonymously</span>
-              </label>
-            </div>
           )}
 
           <button type="submit" disabled={busy} className="btn-primary w-full text-lg py-4">
             {busy ? "Please wait…" : method === "bank" ? "Get bank details" : `Pay ${formatUGX(amount)}`}
           </button>
-          {!payByBank && (
-            <button
-              type="button"
-              onClick={() => setPayByBank(true)}
-              className="block mx-auto text-sm text-muted-foreground underline"
-            >
-              Or pay by bank transfer
-            </button>
-          )}
+
           <p className="text-xs text-muted-foreground text-center">
             By continuing you agree that Mengo Senior School may contact you about this gift.
           </p>

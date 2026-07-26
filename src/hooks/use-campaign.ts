@@ -36,6 +36,12 @@ export function useCampaign() {
   const q = useQuery({
     queryKey: ["campaign"],
     queryFn: async (): Promise<CampaignSettings> => {
+      if (import.meta.env.VITE_USE_DJANGO === "true") {
+        const url = `${import.meta.env.VITE_BACKEND_URL || "http://localhost:8000"}/api/campaign/`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Failed to fetch campaign settings");
+        return await res.json();
+      }
       const { data, error } = await supabase
         .from("campaign_settings")
         .select("id, campaign_name, tagline, story, goal_amount, event_date, event_details")
@@ -46,6 +52,7 @@ export function useCampaign() {
     },
   });
   useEffect(() => {
+    if (import.meta.env.VITE_USE_DJANGO === "true") return;
     const channel = supabase
       .channel("rt:campaign")
       .on("postgres_changes", { event: "*", schema: "public", table: "campaign_settings" }, () => {
@@ -64,12 +71,19 @@ export function useCampaignStats() {
   const q = useQuery({
     queryKey: ["campaign-stats"],
     queryFn: async (): Promise<CampaignStats> => {
+      if (import.meta.env.VITE_USE_DJANGO === "true") {
+        const url = `${import.meta.env.VITE_BACKEND_URL || "http://localhost:8000"}/api/stats/`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Failed to fetch campaign stats");
+        return await res.json();
+      }
       const { data, error } = await supabase.rpc("get_campaign_stats").single();
       if (error) throw error;
       return data as CampaignStats;
     },
   });
   useEffect(() => {
+    if (import.meta.env.VITE_USE_DJANGO === "true") return;
     const channel = supabase
       .channel("rt:tx-stats")
       .on(
@@ -91,6 +105,16 @@ export function useLiveDonations(limit = 25, typeFilter?: "donation" | "kit_purc
   const q = useQuery({
     queryKey: key,
     queryFn: async (): Promise<PublicTransaction[]> => {
+      if (import.meta.env.VITE_USE_DJANGO === "true") {
+        const url = `${import.meta.env.VITE_BACKEND_URL || "http://localhost:8000"}/api/donations/`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Failed to fetch live donations");
+        const data: PublicTransaction[] = await res.json();
+        if (typeFilter) {
+          return data.filter((t) => t.type === typeFilter);
+        }
+        return data;
+      }
       let query = supabase
         .from("transactions")
         .select("id, amount, type, payment_method, message, is_anonymous, donor_display_name, confirmed_at, created_at")
@@ -104,6 +128,7 @@ export function useLiveDonations(limit = 25, typeFilter?: "donation" | "kit_purc
     },
   });
   useEffect(() => {
+    if (import.meta.env.VITE_USE_DJANGO === "true") return;
     const channel = supabase
       .channel("rt:tx-feed")
       .on(

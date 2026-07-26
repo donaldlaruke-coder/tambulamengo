@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - VITE_USE_DJANGO=true
+      - VITE_BACKEND_URL=https://api.tambulamengo.work.gd
+      - FRONTEND_URL=https://tambulamengo.work.gd
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - PESAPAL_CONSUMER_KEY=${PESAPAL_CONSUMER_KEY}
+      - PESAPAL_CONSUMER_SECRET=${PESAPAL_CONSUMER_SECRET}
+      - PESAPAL_SANDBOX=${PESAPAL_SANDBOX}
+      - SUPABASE_PROJECT_ID=${SUPABASE_PROJECT_ID}
+      - SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY}
+      - SUPABASE_URL=${SUPABASE_URL}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.tambula-frontend.rule=Host(`tambulamengo.work.gd`)"
+      - "traefik.http.routers.tambula-frontend.entrypoints=websecure"
+      - "traefik.http.routers.tambula-frontend.tls=true"
+      - "traefik.http.routers.tambula-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.tambula-frontend.loadbalancer.server.port=3000"
+    networks:
+      - proxy
+    restart: always
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - db-data:/app
+    environment:
+      - DEBUG=False
+      - SECRET_KEY=${DJANGO_SECRET_KEY:-change-me-in-production-12345}
+      - FRONTEND_URL=https://tambulamengo.work.gd
+      - PESAPAL_CONSUMER_KEY=${PESAPAL_CONSUMER_KEY}
+      - PESAPAL_CONSUMER_SECRET=${PESAPAL_CONSUMER_SECRET}
+      - PESAPAL_SANDBOX=${PESAPAL_SANDBOX}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.tambula-backend.rule=Host(`api.tambulamengo.work.gd`)"
+      - "traefik.http.routers.tambula-backend.entrypoints=websecure"
+      - "traefik.http.routers.tambula-backend.tls=true"
+      - "traefik.http.routers.tambula-backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.tambula-backend.loadbalancer.server.port=8000"
+    networks:
+      - proxy
+    restart: always
+
+volumes:
+  db-data:
+
+networks:
+  proxy:
+    external: true

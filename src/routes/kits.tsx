@@ -29,6 +29,12 @@ function KitsPage() {
   const { data: kits, isLoading } = useQuery({
     queryKey: ["kits", "active"],
     queryFn: async () => {
+      if (import.meta.env.VITE_USE_DJANGO === "true") {
+        const url = `${import.meta.env.VITE_BACKEND_URL || "http://localhost:8000"}/api/kits/`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Failed to fetch kits");
+        return (await res.json()) as Kit[];
+      }
       const { data, error } = await supabase
         .from("kit_products")
         .select("id,name,description,price,size_options,stock")
