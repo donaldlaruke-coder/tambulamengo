@@ -192,7 +192,7 @@ function SiteFooter() {
       </div>
       <div className="border-t border-border">
         <div className="container-page py-4 text-xs text-muted-foreground text-center">
-          © {new Date().getFullYear()} Mengo Senior School. All donations processed via MTN MoMo, Airtel Money and Stanbic Bank.
+          © {new Date().getFullYear()} Mengo Senior School. All payments processed securely via MTN MoMo, Airtel Money, Visa and Mastercard.
         </div>
       </div>
     </footer>

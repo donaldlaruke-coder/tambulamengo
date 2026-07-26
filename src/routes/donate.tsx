@@ -47,17 +47,12 @@ function DonatePage() {
   const [showName, setShowName] = useState(false);
   const [anonymous, setAnonymous] = useState(false);
   const [message, setMessage] = useState("");
-  const [paymentMode, setPaymentMode] = useState<"mobile" | "card" | "bank">("mobile");
+  const [paymentMode, setPaymentMode] = useState<"mobile" | "card">("mobile");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [step, setStep] = useState<Step>(search.status === "success" ? "success" : "details");
   const [reference, setReference] = useState<string>(search.reference ?? "");
   const [busy, setBusy] = useState(false);
-  const [bankDetails, setBankDetails] = useState<{
-    bank_name: string | null;
-    bank_account_name: string | null;
-    bank_account_number: string | null;
-  } | null>(null);
 
   const network = useMemo(() => detectUgNetwork(phone), [phone]);
   const normalized = useMemo(() => normalizeUgPhone(phone), [phone]);
@@ -276,7 +271,7 @@ function DonatePage() {
 
           <div className="card-heritage p-5">
             <label className="block text-sm font-semibold mb-3">Choose Payment Method</label>
-            <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="grid grid-cols-2 gap-2 mb-4">
               <button
                 type="button"
                 onClick={() => setPaymentMode("mobile")}
@@ -298,17 +293,6 @@ function DonatePage() {
                 }`}
               >
                 Bank Card
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMode("bank")}
-                className={`min-h-12 rounded-lg border-2 font-semibold text-xs transition-all ${
-                  paymentMode === "bank"
-                    ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                    : "border-border bg-background hover:border-primary/40 text-muted-foreground"
-                }`}
-              >
-                Bank Transfer
               </button>
             </div>
 
@@ -441,7 +425,7 @@ function DonatePage() {
           )}
 
           <button type="submit" disabled={busy} className="btn-primary w-full text-lg py-4">
-            {busy ? "Please wait…" : method === "bank" ? "Get bank details" : `Pay ${formatUGX(amount)}`}
+            {busy ? "Please wait…" : `Pay ${formatUGX(amount)}`}
           </button>
 
           <p className="text-xs text-muted-foreground text-center">
@@ -461,37 +445,6 @@ function DonatePage() {
             </p>
             <p className="text-xs text-muted-foreground mt-3">Reference: {reference}</p>
           </div>
-        </div>
-      )}
-
-      {step === "bank_pending" && (
-        <div className="space-y-5 py-4">
-          <header>
-            <h1 className="text-2xl md:text-3xl font-serif font-bold text-primary">Bank transfer details</h1>
-            <p className="text-muted-foreground mt-1">Pay {formatUGX(amount)} using the details below.</p>
-          </header>
-          <dl className="card-heritage p-5 divide-y divide-border">
-            <Row label="Bank" value={bankDetails?.bank_name ?? "—"} />
-            <Row label="Account name" value={bankDetails?.bank_account_name ?? "—"} />
-            <Row label="Account number" value={bankDetails?.bank_account_number ?? "—"} />
-            <Row label="Amount" value={formatUGX(amount)} />
-            <Row label="Reference (very important)" value={reference} highlight />
-          </dl>
-          {isKitFlow && (
-            <div className="card-heritage p-5 text-center bg-amber-500/10 border-amber-500/30">
-              <div className="text-sm font-semibold text-amber-900 dark:text-amber-200">
-                Payment Verification Pending
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Your QR pickup pass will be generated automatically once your bank transfer is confirmed.
-              </p>
-              <div className="mt-3 font-mono text-xs text-muted-foreground">Reference: {reference}</div>
-            </div>
-          )}
-          <p className="text-sm text-muted-foreground">
-            After paying, your gift will appear on the live board once our team confirms it (usually the same day).
-          </p>
-          <button onClick={() => nav({ to: "/" })} className="btn-primary w-full">Done</button>
         </div>
       )}
 
