@@ -478,15 +478,14 @@ function DonatePage() {
             <Row label="Reference (very important)" value={reference} highlight />
           </dl>
           {isKitFlow && (
-            <div className="card-heritage p-5 text-center">
-              <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Show this at pickup</div>
-              <div className="inline-block bg-white p-3 rounded-lg">
-                <QRCodeSVG value={reference} size={180} level="M" />
+            <div className="card-heritage p-5 text-center bg-amber-500/10 border-amber-500/30">
+              <div className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                Payment Verification Pending
               </div>
-              <div className="mt-3 font-mono text-sm">{reference}</div>
               <p className="text-xs text-muted-foreground mt-2">
-                Save a screenshot. Your kit is released once we confirm your bank payment.
+                Your QR pickup pass will be generated automatically once your bank transfer is confirmed.
               </p>
+              <div className="mt-3 font-mono text-xs text-muted-foreground">Reference: {reference}</div>
             </div>
           )}
           <p className="text-sm text-muted-foreground">
