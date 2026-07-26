@@ -34,6 +34,9 @@ services:
       - "traefik.http.services.tambula-frontend.loadbalancer.server.port=3000"
     networks:
       - proxy
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     restart: always
 
   backend:
@@ -61,6 +64,9 @@ services:
     networks:
       - proxy
       - db_network
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     restart: always
 
 volumes:
