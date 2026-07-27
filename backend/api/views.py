@@ -13,6 +13,11 @@ from rest_framework import status, generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
+from rest_framework.authentication import SessionAuthentication
+
+class CsrfExemptSessionAuthentication(SessionAuthentication):
+    def enforce_csrf(self, request):
+        return  # Bypass CSRF enforcement for API views using session authentication
 
 from .models import CampaignSettings, KitProduct, Donor, Transaction, KitOrderItem
 from .serializers import (
@@ -409,6 +414,7 @@ class VerifyTransactionView(APIView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class AdminLoginView(APIView):
+    authentication_classes = (CsrfExemptSessionAuthentication,)
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -423,6 +429,7 @@ class AdminLoginView(APIView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class AdminLogoutView(APIView):
+    authentication_classes = (CsrfExemptSessionAuthentication,)
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -431,6 +438,7 @@ class AdminLogoutView(APIView):
 
 
 class AdminMeView(APIView):
+    authentication_classes = (CsrfExemptSessionAuthentication,)
     permission_classes = [AllowAny]
 
     def get(self, request):
@@ -444,6 +452,7 @@ class AdminMeView(APIView):
 
 
 class AdminStatsView(APIView):
+    authentication_classes = (CsrfExemptSessionAuthentication,)
     permission_classes = [AllowAny]
 
     def get(self, request):
@@ -469,6 +478,7 @@ class AdminStatsView(APIView):
 
 
 class AdminTransactionsView(APIView):
+    authentication_classes = (CsrfExemptSessionAuthentication,)
     permission_classes = [AllowAny]
 
     def get(self, request):
@@ -505,6 +515,7 @@ class AdminTransactionsView(APIView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class AdminConfirmTransactionView(APIView):
+    authentication_classes = (CsrfExemptSessionAuthentication,)
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -523,6 +534,7 @@ class AdminConfirmTransactionView(APIView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class AdminRejectTransactionView(APIView):
+    authentication_classes = (CsrfExemptSessionAuthentication,)
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -540,6 +552,7 @@ class AdminRejectTransactionView(APIView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class AdminKitsView(APIView):
+    authentication_classes = (CsrfExemptSessionAuthentication,)
     permission_classes = [AllowAny]
 
     def get(self, request):
@@ -566,6 +579,7 @@ class AdminKitsView(APIView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class AdminKitToggleView(APIView):
+    authentication_classes = (CsrfExemptSessionAuthentication,)
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -584,6 +598,7 @@ class AdminKitToggleView(APIView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class AdminCampaignView(APIView):
+    authentication_classes = (CsrfExemptSessionAuthentication,)
     permission_classes = [AllowAny]
 
     def get(self, request):
