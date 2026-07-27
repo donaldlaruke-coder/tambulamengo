@@ -471,48 +471,98 @@ function DonatePage() {
       )}
 
       {step === "success" && (
-        <div className="text-center py-8 space-y-6">
-          <div className="mx-auto h-20 w-20 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-4xl">✓</div>
-          <h2 className="text-3xl font-serif font-bold text-primary">
-            {isKitFlow ? "Kit Payment Confirmed!" : "Donation Confirmed!"}
-          </h2>
-          <p className="text-lg">
-            {isKitFlow ? "Your payment of" : "Your gift of"}{" "}
-            <strong>{txDetails?.amount ? formatUGX(txDetails.amount) : formatUGX(amount)}</strong> has been received.
-          </p>
+        <div className="text-center py-8 space-y-6 max-w-xl mx-auto">
+          <div className="mx-auto h-20 w-20 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-4xl shadow-md">✓</div>
 
-          <div className="card-heritage p-6 max-w-md mx-auto space-y-4 text-left">
-            <div className="text-xs uppercase tracking-widest text-muted-foreground text-center mb-1">
-              Official Digital Receipt & QR Pass
-            </div>
+          {isKitFlow ? (
+            /* 🎽 KIT PURCHASE SUCCESS VIEW (WITH QR CODE PASS) */
+            <>
+              <h2 className="text-3xl font-serif font-bold text-primary">
+                Kit Payment Confirmed!
+              </h2>
+              <p className="text-lg">
+                Your kit order of{" "}
+                <strong>{txDetails?.amount ? formatUGX(txDetails.amount) : formatUGX(amount)}</strong> has been received.
+              </p>
 
-            <div className="flex justify-center bg-white p-4 rounded-xl border border-border">
-              <QRCodeSVG value={qrPayload || reference} size={220} level="M" />
-            </div>
+              <div className="card-heritage p-6 space-y-4 text-left">
+                <div className="text-xs uppercase tracking-widest text-muted-foreground text-center mb-1">
+                  Official Digital Receipt & QR Pass
+                </div>
 
-            <dl className="divide-y divide-border text-sm pt-2">
-              <Row label="Payer Name" value={txDetails?.donor_name || name || "Anonymous"} />
-              <Row label="Phone Number" value={txDetails?.donor_phone || phone || "N/A"} />
-              <Row label="Payment Type" value={txDetails?.type_display || (isKitFlow ? "Kit Purchase" : "Donation")} />
-              <Row label="Amount Paid" value={txDetails?.amount ? formatUGX(txDetails.amount) : formatUGX(amount)} highlight />
-              <Row label="Reference (Ref)" value={reference} />
-              <Row label="Transaction ID / Code" value={txDetails?.provider_reference || txDetails?.confirmation_code || "Pesapal Confirmed"} />
-              <Row 
-                label="Date & Time" 
-                value={txDetails?.confirmed_at ? new Date(txDetails.confirmed_at).toLocaleString() : new Date().toLocaleString()} 
-              />
-            </dl>
+                <div className="flex justify-center bg-white p-4 rounded-xl border border-border shadow-inner">
+                  <QRCodeSVG value={qrPayload || reference} size={220} level="M" />
+                </div>
 
-            <p className="text-xs text-muted-foreground text-center pt-2">
-              {isKitFlow 
-                ? "Please screenshot or save this QR code pass to present at the school pavilion during kit collection." 
-                : "Thank you for supporting Tambula Mengo! Keep this receipt for your records."}
-            </p>
-          </div>
+                <dl className="divide-y divide-border text-sm pt-2">
+                  <Row label="Payer Name" value={txDetails?.donor_name || name || "Anonymous"} />
+                  <Row label="Phone Number" value={txDetails?.donor_phone || phone || "N/A"} />
+                  <Row label="Category" value="🎽 Kit Purchase" />
+                  <Row label="Amount Paid" value={txDetails?.amount ? formatUGX(txDetails.amount) : formatUGX(amount)} highlight />
+                  <Row label="Reference (Ref)" value={reference} />
+                  <Row label="Transaction Code" value={txDetails?.provider_reference || txDetails?.confirmation_code || "Pesapal Confirmed"} />
+                  <Row 
+                    label="Date & Time" 
+                    value={txDetails?.confirmed_at ? new Date(txDetails.confirmed_at).toLocaleString() : new Date().toLocaleString()} 
+                  />
+                </dl>
+
+                <p className="text-xs text-muted-foreground text-center pt-2">
+                  Please screenshot or save this QR code pass to present at the school pavilion during kit collection.
+                </p>
+              </div>
+            </>
+          ) : (
+            /* 🎁 REGULAR DONATION SUCCESS VIEW (WARM THANK YOU — NO QR CODE) */
+            <>
+              <h2 className="text-3xl font-serif font-bold text-primary">
+                Thank You for Your Generous Support! 💖
+              </h2>
+              
+              <div className="card-heritage p-6 space-y-4 text-left border-primary/30 bg-cream/40">
+                <div className="text-center pb-2 border-b border-border">
+                  <span className="text-xs uppercase tracking-widest font-semibold text-primary">
+                    Mengo Senior School — Heritage & Legacy
+                  </span>
+                  <div className="text-sm font-serif italic text-muted-foreground mt-0.5">
+                    "Akwana Akira Ayomba — Make friends and never foes."
+                  </div>
+                </div>
+
+                <p className="text-base leading-relaxed text-foreground">
+                  Dear <strong>{txDetails?.donor_name || name || "Valued Supporter"}</strong>,
+                </p>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  On behalf of <strong>Mengo Senior School</strong>, our Board of Governors, teachers, and students, we express our deepest and most heartfelt gratitude for your generous gift of{" "}
+                  <strong className="text-primary font-semibold">{txDetails?.amount ? formatUGX(txDetails.amount) : formatUGX(amount)}</strong>.
+                </p>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Your kindness directly powers our mission to preserve our 130-year legacy of academic excellence, empower young minds, and build a brighter future for the entire Mengo community. May you be abundantly blessed!
+                </p>
+
+                <div className="pt-3">
+                  <div className="text-xs uppercase tracking-widest text-muted-foreground mb-2">
+                    Official Payment Receipt
+                  </div>
+                  <dl className="divide-y divide-border text-sm bg-background p-4 rounded-xl border border-border">
+                    <Row label="Donor Name" value={txDetails?.donor_name || name || "Anonymous"} />
+                    <Row label="Category" value="🎁 Donation" />
+                    <Row label="Amount Gifted" value={txDetails?.amount ? formatUGX(txDetails.amount) : formatUGX(amount)} highlight />
+                    <Row label="Reference (Ref)" value={reference} />
+                    <Row label="Transaction Code" value={txDetails?.provider_reference || txDetails?.confirmation_code || "Pesapal Confirmed"} />
+                    <Row 
+                      label="Date & Time" 
+                      value={txDetails?.confirmed_at ? new Date(txDetails.confirmed_at).toLocaleString() : new Date().toLocaleString()} 
+                    />
+                  </dl>
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="flex flex-wrap justify-center gap-3 pt-2">
-            <Link to="/donations" className="btn-primary">See the live board</Link>
-            <Link to="/" className="btn-outline">Back to home</Link>
+            <Link to="/donations" className="btn-primary">See live donations board</Link>
+            <Link to="/" className="btn-outline">Back to Home</Link>
           </div>
         </div>
       )}
