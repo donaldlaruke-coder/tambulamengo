@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     CampaignSettingsView, KitProductListView, CampaignStatsView,
     LiveDonationsListView, InitiatePaymentView, PesapalIPNView,
-    PesapalCallbackView, VerifyTransactionView,
+    PesapalCallbackView, VerifyTransactionView, RegisterIPNView,
     AdminLoginView, AdminLogoutView, AdminMeView,
     AdminStatsView, AdminTransactionsView,
     AdminConfirmTransactionView, AdminRejectTransactionView,
@@ -18,6 +18,7 @@ urlpatterns = [
     path('payments/verify/', VerifyTransactionView.as_view(), name='verify-payment'),
     path('payments/pesapal-ipn/', PesapalIPNView.as_view(), name='pesapal-ipn'),
     path('payments/pesapal-callback/', PesapalCallbackView.as_view(), name='pesapal-callback'),
+    path('payments/register-ipn/', RegisterIPNView.as_view(), name='register-ipn'),
     # Admin API endpoints
     path('admin-api/login/', AdminLoginView.as_view(), name='admin-login'),
     path('admin-api/logout/', AdminLogoutView.as_view(), name='admin-logout'),

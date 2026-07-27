@@ -202,41 +202,118 @@ class InitiatePaymentView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+# ───────────────────── Helper: Auto-check Pesapal status ─────────────────────
+
+def check_and_update_pesapal_transaction(tx):
+    """
+    Queries Pesapal API v3 for transaction status if currently pending.
+    Updates database record status, confirmed_at, provider_reference, and payment_method if completed.
+    """
+    if not tx or tx.status in ['confirmed', 'failed'] or not tx.provider_reference:
+        return tx
+
+    try:
+        token = pesapal.get_auth_token()
+        status_res = pesapal.get_transaction_status(token, tx.provider_reference)
+        logger.info(f"Pesapal status query for {tx.internal_reference}: {status_res}")
+
+        status_code = status_res.get("status_code")
+        payment_status_desc = str(status_res.get("payment_status_description", "")).upper()
+
+        # Pesapal API V3 status code 1 = Completed, 2 = Failed, 0 = Pending
+        # Also payment_status_description = "Completed" or "COMPLETED"
+        is_completed = (
+            status_code in [1, "1", "COMPLETED", "Completed"] or
+            payment_status_desc == "COMPLETED" or
+            "COMPLETED" in payment_status_desc or
+            status_res.get("status") == "200" and payment_status_desc == "COMPLETED"
+        )
+        is_failed = (
+            status_code in [2, "2", "FAILED", "Failed", "INVALID", "Invalid"] or
+            payment_status_desc in ["FAILED", "INVALID"] or
+            "FAILED" in payment_status_desc
+        )
+
+        if is_completed:
+            tx.status = 'confirmed'
+            if not tx.confirmed_at:
+                tx.confirmed_at = timezone.now()
+
+            # Extract confirmation code / mobile money receipt code if provided
+            confirmation_code = status_res.get("confirmation_code") or status_res.get("payment_account")
+            if confirmation_code and not tx.provider_reference:
+                tx.provider_reference = confirmation_code
+
+            # Extract actual payment method if available
+            pm = str(status_res.get("payment_method", "")).lower()
+            if "momo" in pm or "mtn" in pm:
+                tx.payment_method = "mtn_momo"
+            elif "airtel" in pm:
+                tx.payment_method = "airtel_money"
+            elif "card" in pm or "visa" in pm or "master" in pm:
+                tx.payment_method = "card"
+
+            tx.save()
+            logger.info(f"Transaction {tx.internal_reference} auto-confirmed via Pesapal query.")
+        elif is_failed:
+            tx.status = 'failed'
+            tx.save()
+            logger.info(f"Transaction {tx.internal_reference} marked as FAILED via Pesapal query.")
+    except Exception as e:
+        logger.error(f"Failed auto-checking Pesapal transaction status for {tx.internal_reference}: {e}")
+
+    return tx
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class RegisterIPNView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            token = pesapal.get_auth_token()
+            backend_ipn = request.build_absolute_uri('/api/payments/pesapal-ipn/')
+            if backend_ipn.startswith("http://") and "tambulamengo.work.gd" in backend_ipn:
+                backend_ipn = backend_ipn.replace("http://", "https://")
+
+            ipn_id = pesapal.register_ipn(token, backend_ipn)
+            logger.info(f"Registered Pesapal IPN URL: {backend_ipn} -> IPN_ID: {ipn_id}")
+            return Response({
+                "success": True,
+                "ipn_url": backend_ipn,
+                "ipn_id": ipn_id
+            })
+        except Exception as e:
+            logger.error(f"Error registering IPN URL with Pesapal: {e}")
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request):
+        return self.get(request)
+
+
 class PesapalIPNView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        # Pesapal sends parameters as query params or json
         data = request.query_params if request.query_params else request.data
         order_tracking_id = data.get("OrderTrackingId")
         merchant_reference = data.get("OrderMerchantReference")
         notification_type = data.get("OrderNotificationType")
 
-        logger.info(f"Received Pesapal IPN notification: {notification_type} for reference {merchant_reference}")
+        logger.info(f"Received Pesapal IPN notification: {notification_type} for ref {merchant_reference}, tracking ID {order_tracking_id}")
 
-        if notification_type == "IPNCHANGE" and order_tracking_id:
-            try:
-                token = pesapal.get_auth_token()
-                status_res = pesapal.get_transaction_status(token, order_tracking_id)
-                status_code = status_res.get("status_code") # COMPLETED, FAILED, INVALID, PENDING
-                
-                tx = Transaction.objects.get(internal_reference=merchant_reference)
-                
-                if status_code == "COMPLETED":
-                    tx.status = 'confirmed'
-                    tx.confirmed_at = timezone.now()
+        if merchant_reference:
+            tx = Transaction.objects.filter(internal_reference=merchant_reference).first()
+            if tx:
+                if order_tracking_id and not tx.provider_reference:
+                    tx.provider_reference = order_tracking_id
                     tx.save()
-                    logger.info(f"Transaction {merchant_reference} confirmed via IPN webhook.")
-                elif status_code in ["FAILED", "INVALID"]:
-                    tx.status = 'failed'
-                    tx.save()
-                    logger.info(f"Transaction {merchant_reference} failed via IPN webhook.")
-            except Transaction.DoesNotExist:
-                logger.warning(f"Transaction with reference {merchant_reference} not found in database.")
-            except Exception as e:
-                logger.error(f"Failed to process Pesapal IPN status query: {e}")
+                check_and_update_pesapal_transaction(tx)
+        elif order_tracking_id:
+            tx = Transaction.objects.filter(provider_reference=order_tracking_id).first()
+            if tx:
+                check_and_update_pesapal_transaction(tx)
 
-        # Pesapal requires a specific JSON response acknowledging receipt
         return Response({
             "OrderTrackingId": order_tracking_id,
             "OrderMerchantReference": merchant_reference,
@@ -246,38 +323,30 @@ class PesapalIPNView(APIView):
     def get(self, request):
         return self.post(request)
 
+
 class PesapalCallbackView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        # Redirected here after payment
         order_tracking_id = request.query_params.get("OrderTrackingId")
         merchant_ref = request.query_params.get("OrderMerchantReference")
-        
+
         logger.info(f"Redirected back from Pesapal. OrderTrackingId: {order_tracking_id}, MerchantRef: {merchant_ref}")
-        
+
         payment_status = "success"
-        if order_tracking_id and merchant_ref:
-            try:
-                token = pesapal.get_auth_token()
-                status_res = pesapal.get_transaction_status(token, order_tracking_id)
-                status_code = status_res.get("status_code")
-                
-                tx = Transaction.objects.get(internal_reference=merchant_ref)
-                if status_code == "COMPLETED":
-                    tx.status = 'confirmed'
-                    tx.confirmed_at = timezone.now()
+        if merchant_ref:
+            tx = Transaction.objects.filter(internal_reference=merchant_ref).first()
+            if tx:
+                if order_tracking_id and not tx.provider_reference:
+                    tx.provider_reference = order_tracking_id
                     tx.save()
-                elif status_code in ["FAILED", "INVALID"]:
-                    tx.status = 'failed'
-                    tx.save()
+                tx = check_and_update_pesapal_transaction(tx)
+                if tx.status == "failed":
                     payment_status = "failed"
-            except Exception as e:
-                logger.error(f"Error checking transaction status on callback: {e}")
-                
-        # Redirect user back to React frontend page
-        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:8080')
+
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'https://tambulamengo.work.gd')
         return redirect(f"{frontend_url}/donate?reference={merchant_ref}&status={payment_status}")
+
 
 class VerifyTransactionView(APIView):
     permission_classes = [AllowAny]
@@ -286,11 +355,14 @@ class VerifyTransactionView(APIView):
         reference = request.query_params.get("reference")
         if not reference:
             return Response({"detail": "Reference parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         try:
             tx = Transaction.objects.get(internal_reference=reference)
+            if tx.status == 'pending':
+                tx = check_and_update_pesapal_transaction(tx)
+
             donor = tx.donor
-            
+
             # Fetch kit order items if kit purchase
             items = []
             if tx.type == 'kit_purchase':
@@ -402,6 +474,11 @@ class AdminTransactionsView(APIView):
     def get(self, request):
         if not request.user.is_authenticated or not request.user.is_staff:
             return Response({'detail': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Auto-check any pending transactions with provider_reference against Pesapal
+        pending_txs = Transaction.objects.filter(status='pending', provider_reference__isnull=False)
+        for p_tx in pending_txs[:20]:
+            check_and_update_pesapal_transaction(p_tx)
 
         txs = Transaction.objects.select_related('donor').order_by('-created_at')[:500]
         result = []
