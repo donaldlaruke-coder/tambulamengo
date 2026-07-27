@@ -626,10 +626,11 @@ function CampaignAdmin() {
         credentials: "include",
         body: JSON.stringify(form),
       });
-      if (!res.ok) throw new Error("Failed to save settings");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Failed to save settings");
     },
     onSuccess: () => {
-      toast.success("Saved");
+      toast.success("Campaign settings saved successfully!");
       qc.invalidateQueries({ queryKey: ["admin-campaign"] });
       qc.invalidateQueries({ queryKey: ["campaign"] });
     },

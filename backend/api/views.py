@@ -604,16 +604,26 @@ class AdminCampaignView(APIView):
         if not request.user.is_authenticated or not request.user.is_staff:
             return Response({'detail': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
         campaign, _ = CampaignSettings.objects.get_or_create(id=1, defaults={
-            'goal_amount': 0, 'event_date': '2026-01-01'
+            'goal_amount': 0, 'event_date': '2026-08-15'
         })
         d = request.data
         for field in ['campaign_name', 'tagline', 'story', 'event_details',
                        'bank_name', 'bank_account_name', 'bank_account_number']:
             if field in d:
                 setattr(campaign, field, d[field])
+
         if 'goal_amount' in d:
-            campaign.goal_amount = int(d['goal_amount'])
-        if 'event_date' in d:
-            campaign.event_date = d['event_date']
+            try:
+                val = d['goal_amount']
+                campaign.goal_amount = int(val) if val != '' and val is not None else 0
+            except (ValueError, TypeError):
+                pass
+
+        if 'event_date' in d and d['event_date']:
+            try:
+                campaign.event_date = d['event_date']
+            except (ValueError, TypeError):
+                pass
+
         campaign.save()
         return Response({'success': True})
