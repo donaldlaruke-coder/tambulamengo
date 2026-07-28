@@ -25,6 +25,7 @@ from .serializers import (
     DonorSerializer, TransactionSerializer
 )
 from . import pesapal
+from . import yo_payments
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +153,8 @@ class InitiatePaymentView(APIView):
                 unit_price=unit_price
             )
 
+        active_gateway = getattr(settings, 'PAYMENT_GATEWAY', 'yo')
+
         if payment_mode == 'bank':
             # Read bank details from settings
             campaign = CampaignSettings.objects.filter(id=1).first()
@@ -161,20 +164,53 @@ class InitiatePaymentView(APIView):
                 "bank_account_name": campaign.bank_account_name if campaign else "Mengo Senior School — Tambula Mengo",
                 "bank_account_number": campaign.bank_account_number if campaign else "9030099999999"
             })
+        elif active_gateway == 'yo' or payment_mode == 'mobile':
+            # Yo! Payments Integration Flow (Mobile Money USSD Prompt)
+            try:
+                backend_ipn = request.build_absolute_uri('/api/payments/yo-ipn/')
+                if backend_ipn.startswith("http://") and "tambulamengo.work.gd" in backend_ipn:
+                    backend_ipn = backend_ipn.replace("http://", "https://")
+
+                narrative = f"Tambula Mengo Run Kit ({size})" if is_kit else "Tambula Mengo Donation"
+                target_phone = phone or (donor.phone if donor else "0770000000")
+
+                yo_res = yo_payments.deposit_funds(
+                    reference=ref,
+                    amount=amount,
+                    phone=target_phone,
+                    narrative=narrative,
+                    ipn_url=backend_ipn
+                )
+
+                transaction_obj.provider_reference = yo_res.get("transaction_reference") or yo_res.get("issued_id")
+                transaction_obj.save()
+
+                return Response({
+                    "reference": ref,
+                    "gateway": "yo",
+                    "status": "pending",
+                    "message": "A USSD payment prompt has been sent to your phone. Please enter your Mobile Money PIN to authorize the payment."
+                })
+            except Exception as e:
+                logger.error(f"Yo! Payments payment initiation failed: {e}")
+                return Response(
+                    {"detail": f"Unable to connect to Yo! Payments gateway: {str(e)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         else:
             # Pesapal integration flow
             try:
                 token = pesapal.get_auth_token()
-                
+
                 # Callback URL inside backend to process redirect
                 backend_callback = request.build_absolute_uri('/api/payments/pesapal-callback/')
-                
+
                 # IPN Webhook URL
                 backend_ipn = request.build_absolute_uri('/api/payments/pesapal-ipn/')
-                
+
                 # Register IPN URL
                 ipn_id = pesapal.register_ipn(token, backend_ipn)
-                
+
                 # Add 11.67% surcharge, but do not show to the user on our frontend UI
                 surcharged_amount = int(float(amount) * 1.1167)
 
@@ -191,11 +227,11 @@ class InitiatePaymentView(APIView):
                     name=name,
                     redirect_url=backend_callback
                 )
-                
+
                 # Save order tracking id
                 transaction_obj.provider_reference = pesapal_res.get("order_tracking_id")
                 transaction_obj.save()
-                
+
                 return Response({
                     "reference": ref,
                     "redirect_url": pesapal_res.get("redirect_url")
@@ -267,7 +303,75 @@ def check_and_update_pesapal_transaction(tx):
     except Exception as e:
         logger.error(f"Failed auto-checking Pesapal transaction status for {tx.internal_reference}: {e}")
 
+# ───────────────────── Helper: Auto-check Yo! Payments status ─────────────────────
+
+def check_and_update_yo_transaction(tx):
+    """
+    Queries Yo! Payments for transaction status if currently pending.
+    Updates database record status, confirmed_at, provider_reference if completed.
+    """
+    if not tx or tx.status in ['confirmed', 'failed']:
+        return tx
+
+    try:
+        status_res = yo_payments.check_transaction_status(tx.internal_reference, tx.provider_reference)
+        logger.info(f"Yo! Payments status query for {tx.internal_reference}: {status_res}")
+
+        tx_status = str(status_res.get("transaction_status", "")).upper()
+        if tx_status in ["SUCCEEDED", "SUCCESS", "COMPLETED"]:
+            tx.status = 'confirmed'
+            if not tx.confirmed_at:
+                tx.confirmed_at = timezone.now()
+            if status_res.get("momo_ref") and not tx.provider_reference:
+                tx.provider_reference = status_res.get("momo_ref")
+            tx.save()
+            logger.info(f"Transaction {tx.internal_reference} auto-confirmed via Yo! Payments check.")
+        elif tx_status in ["FAILED", "CANCELLED", "REJECTED"]:
+            tx.status = 'failed'
+            tx.save()
+            logger.info(f"Transaction {tx.internal_reference} marked FAILED via Yo! Payments check.")
+    except Exception as e:
+        logger.error(f"Error checking Yo! Payments status for {tx.internal_reference}: {e}")
+
     return tx
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class YoIPNView(APIView):
+    authentication_classes = (CsrfExemptSessionAuthentication,)
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        d = request.POST if request.POST else (request.query_params if request.query_params else request.data)
+        logger.info(f"Received Yo! Payments IPN notification: {d}")
+
+        external_ref = d.get("external_ref") or d.get("external_reference") or d.get("ExternalReference")
+        tx_status = str(d.get("transaction_status") or d.get("TransactionStatus") or "").upper()
+        network_ref = d.get("network_ref") or d.get("MNOTransactionReferenceId") or d.get("transaction_initiation_id")
+
+        if external_ref:
+            tx = Transaction.objects.filter(internal_reference=external_ref).first()
+            if tx:
+                if network_ref and not tx.provider_reference:
+                    tx.provider_reference = network_ref
+
+                if tx_status in ["SUCCEEDED", "SUCCESS", "COMPLETED"]:
+                    tx.status = 'confirmed'
+                    if not tx.confirmed_at:
+                        tx.confirmed_at = timezone.now()
+                    tx.save()
+                    logger.info(f"Transaction {external_ref} confirmed via Yo! IPN webhook.")
+                elif tx_status in ["FAILED", "CANCELLED", "REJECTED"]:
+                    tx.status = 'failed'
+                    tx.save()
+                    logger.info(f"Transaction {external_ref} marked FAILED via Yo! IPN webhook.")
+                else:
+                    check_and_update_yo_transaction(tx)
+
+        return Response({"status": "OK"}, status=status.HTTP_200_OK)
+
+    def get(self, request):
+        return self.post(request)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -364,7 +468,9 @@ class VerifyTransactionView(APIView):
         try:
             tx = Transaction.objects.get(internal_reference=reference)
             if tx.status == 'pending':
-                tx = check_and_update_pesapal_transaction(tx)
+                tx = check_and_update_yo_transaction(tx)
+                if tx.status == 'pending':
+                    tx = check_and_update_pesapal_transaction(tx)
 
             donor = tx.donor
 
@@ -485,10 +591,12 @@ class AdminTransactionsView(APIView):
         if not request.user.is_authenticated or not request.user.is_staff:
             return Response({'detail': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
 
-        # Auto-check any pending transactions with provider_reference against Pesapal
-        pending_txs = Transaction.objects.filter(status='pending', provider_reference__isnull=False)
+        # Auto-check any pending transactions against Yo! Payments and Pesapal
+        pending_txs = Transaction.objects.filter(status='pending')
         for p_tx in pending_txs[:20]:
-            check_and_update_pesapal_transaction(p_tx)
+            p_tx = check_and_update_yo_transaction(p_tx)
+            if p_tx.status == 'pending' and p_tx.provider_reference:
+                check_and_update_pesapal_transaction(p_tx)
 
         txs = Transaction.objects.select_related('donor').order_by('-created_at')[:500]
         result = []

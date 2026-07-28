@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
+import { Smartphone, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   detectUgNetwork,
@@ -56,6 +57,34 @@ function DonatePage() {
   const [busy, setBusy] = useState(false);
   const [txDetails, setTxDetails] = useState<any>(null);
   const [bankDetails, setBankDetails] = useState<any>(null);
+  const [pendingYoPayment, setPendingYoPayment] = useState(false);
+
+  useEffect(() => {
+    if (!pendingYoPayment || !reference) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${getBackendUrl()}/api/payments/verify/?reference=${reference}`);
+        const data = await res.json();
+        if (data && data.status === "confirmed") {
+          clearInterval(interval);
+          setPendingYoPayment(false);
+          setTxDetails(data);
+          setStep("success");
+          toast.success("Payment confirmed successfully! Thank you!");
+        } else if (data && data.status === "failed") {
+          clearInterval(interval);
+          setPendingYoPayment(false);
+          setBusy(false);
+          toast.error("Payment was declined or failed on phone. Please try again.");
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [pendingYoPayment, reference]);
 
   useEffect(() => {
     if (step === "success" && reference) {
@@ -143,8 +172,14 @@ function DonatePage() {
         setReference(resData.reference);
         if (resData.redirect_url) {
           window.location.href = resData.redirect_url;
+        } else if (resData.gateway === "yo" || resData.status === "pending") {
+          setPendingYoPayment(true);
+          toast.success(resData.message || "A USSD prompt has been sent to your phone. Enter your PIN to complete payment.");
+        } else if (resData.bank_name) {
+          setBankDetails(resData);
+          setStep("pending_bank");
         } else {
-          throw new Error(resData.detail || "No payment URL received from Pesapal gateway.");
+          throw new Error(resData.detail || "Unable to initiate payment.");
         }
         return;
       }
@@ -563,6 +598,36 @@ function DonatePage() {
           <div className="flex flex-wrap justify-center gap-3 pt-2">
             <Link to="/donations" className="btn-primary">See live donations board</Link>
             <Link to="/" className="btn-outline">Back to Home</Link>
+          </div>
+        </div>
+      )}
+
+      {pendingYoPayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+          <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-2xl border border-primary/30 text-center animate-in fade-in zoom-in duration-300">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary animate-bounce">
+              <Smartphone className="h-8 w-8 text-primary" />
+            </div>
+            <h3 className="text-xl font-bold text-foreground">USSD Prompt Sent!</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              A payment request of <strong className="text-primary font-bold">{formatUGX(amount)}</strong> has been sent to <span className="font-mono text-foreground font-semibold">{phone}</span>.
+            </p>
+
+            <div className="mt-4 rounded-xl bg-amber-500/10 border border-amber-500/20 p-4 text-left text-xs text-amber-700 dark:text-amber-300 space-y-2">
+              <p className="font-bold flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
+                📲 Check your mobile phone screen:
+              </p>
+              <ol className="list-decimal list-inside space-y-1 text-muted-foreground leading-relaxed">
+                <li>Enter your <strong>MTN MoMo or Airtel Money PIN</strong> on the prompt screen.</li>
+                <li>Approve the payment to <strong>Mengo Senior School</strong>.</li>
+                <li>This screen will automatically update once approved.</li>
+              </ol>
+            </div>
+
+            <div className="mt-6 flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground bg-muted/50 py-2.5 px-4 rounded-full border border-border">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              Waiting for Mobile Money PIN confirmation...
+            </div>
           </div>
         </div>
       )}

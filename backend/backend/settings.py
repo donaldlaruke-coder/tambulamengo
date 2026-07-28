@@ -170,5 +170,13 @@ PESAPAL_CONSUMER_KEY = env('PESAPAL_CONSUMER_KEY', default='')
 PESAPAL_CONSUMER_SECRET = env('PESAPAL_CONSUMER_SECRET', default='')
 PESAPAL_SANDBOX = env.bool('PESAPAL_SANDBOX', default=True)
 
+# Yo! Payments Integration Settings
+YO_PAYMENTS_API_USERNAME = env('YO_PAYMENTS_API_USERNAME', default='90002515585')
+YO_PAYMENTS_API_PASSWORD = env('YO_PAYMENTS_API_PASSWORD', default='4053702456')
+YO_PAYMENTS_SANDBOX = env.bool('YO_PAYMENTS_SANDBOX', default=True)
+
+# Active Payment Gateway: 'yo' or 'pesapal'
+PAYMENT_GATEWAY = env('PAYMENT_GATEWAY', default='yo')
+
 # Frontend callback URL configuration
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:8080')
