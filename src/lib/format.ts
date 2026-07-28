@@ -70,17 +70,17 @@ export function normalizeUgPhone(raw: string): string | null {
 }
 
 // Comprehensive Uganda mobile network detection for MTN MoMo and Airtel Money.
-// MTN: 077, 078, 076, 039, 031
-// Airtel: 070, 075, 074, 072, 073, 071, 079
+// MTN: 077, 078, 076, 079, 039, 031
+// Airtel: 070, 075, 074, 072, 073, 071
 export function detectUgNetwork(raw: string): "mtn_momo" | "airtel_money" | null {
   const local = normalizeUgPhone(raw);
   if (!local) return null;
   const p = local.slice(0, 3);
 
-  if (["077", "078", "076", "039", "031"].includes(p)) {
+  if (["077", "078", "076", "079", "039", "031"].includes(p)) {
     return "mtn_momo";
   }
-  if (["070", "075", "074", "072", "073", "071", "079"].includes(p)) {
+  if (["070", "075", "074", "072", "073", "071"].includes(p)) {
     return "airtel_money";
   }
 
