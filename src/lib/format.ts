@@ -45,24 +45,49 @@ export function generateReference(prefix: string): string {
 }
 
 // Normalize a Uganda mobile number to the local 0XXXXXXXXX format.
-// Returns null if it doesn't look like a valid MSISDN.
+// Handles +256, 256, leading 0, or missing leading 0 (9 digits).
 export function normalizeUgPhone(raw: string): string | null {
+  if (!raw) return null;
   const digits = raw.replace(/[^\d]/g, "");
   let local = digits;
-  if (digits.startsWith("256")) local = "0" + digits.slice(3);
-  else if (digits.startsWith("0")) local = digits;
-  else if (digits.length === 9 && digits.startsWith("7")) local = "0" + digits;
-  if (!/^0\d{9}$/.test(local)) return null;
+
+  if (digits.startsWith("256")) {
+    local = "0" + digits.slice(3);
+  } else if (digits.startsWith("0")) {
+    local = digits;
+  } else if (digits.length === 9 && (digits.startsWith("7") || digits.startsWith("3"))) {
+    local = "0" + digits;
+  }
+
+  // Accepts any 10-digit Uganda mobile number (starting with 07 or 03 or 0)
+  if (!/^0[37]\d{8}$/.test(local)) {
+    if (/^0\d{9}$/.test(local)) {
+      return local;
+    }
+    return null;
+  }
   return local;
 }
 
-// Detect the mobile-money network for a Uganda number.
-// MTN: 077, 078, 076, 039; Airtel: 070, 075, 074.
+// Comprehensive Uganda mobile network detection for MTN MoMo and Airtel Money.
+// MTN: 077, 078, 076, 039, 031
+// Airtel: 070, 075, 074, 072, 073, 071, 079
 export function detectUgNetwork(raw: string): "mtn_momo" | "airtel_money" | null {
   const local = normalizeUgPhone(raw);
   if (!local) return null;
   const p = local.slice(0, 3);
-  if (["077", "078", "076", "039"].includes(p)) return "mtn_momo";
-  if (["070", "075", "074"].includes(p)) return "airtel_money";
+
+  if (["077", "078", "076", "039", "031"].includes(p)) {
+    return "mtn_momo";
+  }
+  if (["070", "075", "074", "072", "073", "071", "079"].includes(p)) {
+    return "airtel_money";
+  }
+
+  // Fallback for any other 10-digit 07X or 03X number
+  if (local.startsWith("07") || local.startsWith("03")) {
+    return "mtn_momo";
+  }
+
   return null;
 }
