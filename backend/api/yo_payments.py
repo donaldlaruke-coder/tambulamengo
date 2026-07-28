@@ -96,7 +96,10 @@ def check_transaction_status(reference, transaction_reference=None):
     url = get_base_url()
     username, password = get_credentials()
 
-    ref_field = f"<PrivateTransactionID>{transaction_reference}</PrivateTransactionID>" if transaction_reference else f"<DepositTransactionSucceededExternalReference>{reference}</DepositTransactionSucceededExternalReference>"
+    if transaction_reference:
+        ref_field = f"<TransactionReference>{transaction_reference}</TransactionReference>"
+    else:
+        ref_field = f"<DepositTransactionSucceededExternalReference>{reference}</DepositTransactionSucceededExternalReference>"
 
     xml_request = f"""<?xml version="1.0" encoding="UTF-8"?>
 <AutoCreate>
