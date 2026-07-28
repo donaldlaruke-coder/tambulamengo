@@ -22,14 +22,6 @@ function ChoosePage() {
           <Sparkles className="h-3 w-3 text-gold" />
           <span>Mengo Senior School — 130 Years</span>
         </div>
-        
-        <div className="flex justify-center">
-          <img
-            src="/mengo-badge.jpg"
-            alt="Mengo Senior School Logo"
-            className="h-12 w-12 sm:h-16 sm:w-16 object-contain rounded-xl shadow-md border border-gold/30"
-          />
-        </div>
 
         <h1 className="text-xl sm:text-3xl md:text-4xl font-serif font-bold text-foreground tracking-tight">
           How would you like to support <span className="text-primary">Tambula Mengo</span>?
