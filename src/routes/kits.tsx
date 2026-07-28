@@ -4,7 +4,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatUGX } from "@/lib/format";
 import { getBackendUrl } from "@/lib/backend-url";
-import crest from "@/assets/mengo-badge.jpg.asset.json";
+import crest from "@/assets/mengo-badge.jpg";
 
 type Kit = {
   id: string;
@@ -70,7 +70,7 @@ function KitsPage() {
   return (
     <div className="container-page py-8 md:py-12 pb-24 md:pb-12 grid md:grid-cols-2 gap-8 items-start">
       <div className="card-heritage p-8 bg-primary text-primary-foreground">
-        <img src={crest.url} alt="Mengo badge" width={160} height={160} className="mx-auto h-40 w-40 rounded-full object-cover ring-4 ring-gold/70 shadow-xl" />
+        <img src={crest} alt="Mengo badge" width={160} height={160} className="mx-auto h-40 w-40 rounded-full object-cover ring-4 ring-gold/70 shadow-xl" />
         <div className="text-center mt-4">
           <div className="text-xs uppercase tracking-widest text-gold">Official kit</div>
           <h1 className="text-3xl font-serif font-bold mt-1">Tambula Mengo Run Kit</h1>

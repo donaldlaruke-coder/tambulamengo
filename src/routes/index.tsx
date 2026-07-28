@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import crest from "@/assets/mengo-badge.jpg.asset.json";
+import crest from "@/assets/mengo-badge.jpg";
 import { ProgressBar } from "@/components/tambula/ProgressBar";
 import { DonationTicker } from "@/components/tambula/DonationTicker";
 import { HeroVideoWall, VideoStrip } from "@/components/tambula/HeroVideos";
@@ -29,7 +29,7 @@ function Index() {
         <div className="relative container-page py-16 md:py-28 grid md:grid-cols-2 gap-10 items-center">
           <div>
             <img
-              src={crest.url}
+              src={crest}
               alt="Mengo Senior School badge"
               width={96}
               height={96}
@@ -104,7 +104,7 @@ function Index() {
         </div>
         <aside className="card-heritage p-6">
           <div className="flex items-center gap-3 mb-3">
-            <img src={crest.url} alt="" width={44} height={44} className="h-11 w-11 rounded-full object-cover ring-2 ring-gold/50" />
+            <img src={crest} alt="" width={44} height={44} className="h-11 w-11 rounded-full object-cover ring-2 ring-gold/50" />
             <div>
               <div className="font-serif font-bold text-primary">The Event</div>
               <div className="text-xs text-muted-foreground">Sponsored walk & run</div>
