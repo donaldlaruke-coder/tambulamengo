@@ -89,17 +89,9 @@ function Admin() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-serif font-bold text-primary">Admin dashboard</h1>
-          <p className="text-xs text-muted-foreground mt-1">Django Staff Administration</p>
+          <p className="text-xs text-muted-foreground mt-1">Management Portal</p>
         </div>
         <div className="flex gap-2">
-          <a
-            href={`${getBackendUrl()}/api/admin/`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-outline !min-h-0 !py-2 !px-4 text-sm"
-          >
-            Open Django Admin ↗
-          </a>
           <button onClick={signOut} className="btn-outline !min-h-0 !py-2 !px-4 text-sm">Sign out</button>
         </div>
       </div>

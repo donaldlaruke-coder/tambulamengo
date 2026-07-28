@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ChooseRouteImport } from './routes/choose'
 import { Route as DonateRouteImport } from './routes/donate'
 import { Route as DonationsRouteImport } from './routes/donations'
 import { Route as KitsRouteImport } from './routes/kits'
@@ -29,6 +30,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChooseRoute = ChooseRouteImport.update({
+  id: '/choose',
+  path: '/choose',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DonateRoute = DonateRouteImport.update({
@@ -55,6 +61,7 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/choose': typeof ChooseRoute
   '/donate': typeof DonateRoute
   '/donations': typeof DonationsRoute
   '/kits': typeof KitsRoute
@@ -63,6 +70,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/choose': typeof ChooseRoute
   '/donate': typeof DonateRoute
   '/donations': typeof DonationsRoute
   '/kits': typeof KitsRoute
@@ -73,6 +81,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/choose': typeof ChooseRoute
   '/donate': typeof DonateRoute
   '/donations': typeof DonationsRoute
   '/kits': typeof KitsRoute
@@ -80,14 +89,16 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/donate' | '/donations' | '/kits' | '/admin'
+  fullPaths:
+    '/' | '/auth' | '/choose' | '/donate' | '/donations' | '/kits' | '/admin'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/donate' | '/donations' | '/kits' | '/admin'
+  to: '/' | '/auth' | '/choose' | '/donate' | '/donations' | '/kits' | '/admin'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/choose'
     | '/donate'
     | '/donations'
     | '/kits'
@@ -98,6 +109,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ChooseRoute: typeof ChooseRoute
   DonateRoute: typeof DonateRoute
   DonationsRoute: typeof DonationsRoute
   KitsRoute: typeof KitsRoute
@@ -124,6 +136,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/choose': {
+      id: '/choose'
+      path: '/choose'
+      fullPath: '/choose'
+      preLoaderRoute: typeof ChooseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/donate': {
@@ -172,6 +191,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ChooseRoute: ChooseRoute,
   DonateRoute: DonateRoute,
   DonationsRoute: DonationsRoute,
   KitsRoute: KitsRoute,

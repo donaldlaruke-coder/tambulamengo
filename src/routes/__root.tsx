@@ -183,12 +183,6 @@ function SiteFooter() {
             <li><Link to="/donations" className="hover:text-primary">See live donations</Link></li>
           </ul>
         </div>
-        <div>
-          <div className="font-semibold mb-2">Staff</div>
-          <ul className="space-y-1 text-muted-foreground">
-            <li><Link to="/auth" className="hover:text-primary">Admin sign in</Link></li>
-          </ul>
-        </div>
       </div>
       <div className="border-t border-border">
         <div className="container-page py-4 text-xs text-muted-foreground text-center">
