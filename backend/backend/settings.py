@@ -176,7 +176,7 @@ YO_PAYMENTS_API_PASSWORD = env('YO_PAYMENTS_API_PASSWORD', default='4053702456')
 YO_PAYMENTS_SANDBOX = env.bool('YO_PAYMENTS_SANDBOX', default=True)
 
 # Active Payment Gateway: 'yo' or 'pesapal'
-PAYMENT_GATEWAY = env('PAYMENT_GATEWAY', default='yo')
+PAYMENT_GATEWAY = env('PAYMENT_GATEWAY', default='pesapal')
 
 # Frontend callback URL configuration
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:8080')

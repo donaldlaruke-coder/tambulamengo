@@ -164,7 +164,7 @@ class InitiatePaymentView(APIView):
                 "bank_account_name": campaign.bank_account_name if campaign else "Mengo Senior School — Tambula Mengo",
                 "bank_account_number": campaign.bank_account_number if campaign else "9030099999999"
             })
-        elif active_gateway == 'yo' or payment_mode == 'mobile':
+        elif active_gateway == 'yo':
             # Yo! Payments Integration Flow (Mobile Money USSD Prompt)
             try:
                 backend_ipn = request.build_absolute_uri('/api/payments/yo-ipn/')
