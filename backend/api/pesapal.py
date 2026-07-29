@@ -15,26 +15,34 @@ def get_auth_token():
     """
     Get JWT Token from Pesapal API V3.
     """
+    key = getattr(settings, 'PESAPAL_CONSUMER_KEY', '')
+    secret = getattr(settings, 'PESAPAL_CONSUMER_SECRET', '')
+    if not key or not secret:
+        raise ValueError("PESAPAL_CONSUMER_KEY and PESAPAL_CONSUMER_SECRET are missing in backend/.env on your server.")
+
     url = f"{get_base_url()}/Auth/RequestToken"
     headers = {
         "Content-Type": "application/json",
         "Accept": "application/json"
     }
     payload = {
-        "consumer_key": getattr(settings, 'PESAPAL_CONSUMER_KEY', ''),
-        "consumer_secret": getattr(settings, 'PESAPAL_CONSUMER_SECRET', '')
+        "consumer_key": key,
+        "consumer_secret": secret
     }
     
     logger.info(f"Requesting Pesapal token from {url}")
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=15)
-        response.raise_for_status()
+        if response.status_code != 200:
+            logger.error(f"Pesapal token request failed ({response.status_code}): {response.text}")
+            raise ValueError(f"Pesapal Auth Error ({response.status_code}): {response.text}")
         data = response.json()
-        return data.get("token")
+        token = data.get("token")
+        if not token:
+            raise ValueError(f"Invalid token response from Pesapal: {response.text}")
+        return token
     except Exception as e:
         logger.error(f"Error fetching Pesapal token: {e}")
-        if 'response' in locals():
-            logger.error(f"Pesapal token response error content: {response.text}")
         raise
 
 def register_ipn(token, callback_url):

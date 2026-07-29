@@ -239,7 +239,7 @@ class InitiatePaymentView(APIView):
             except Exception as e:
                 logger.error(f"Pesapal payment initiation failed: {e}")
                 return Response(
-                    {"detail": "Unable to connect to Pesapal payment gateway. Please verify payment settings or try again."},
+                    {"detail": f"Pesapal initiation failed: {str(e)}"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
