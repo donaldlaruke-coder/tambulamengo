@@ -153,8 +153,6 @@ class InitiatePaymentView(APIView):
                 unit_price=unit_price
             )
 
-        active_gateway = getattr(settings, 'PAYMENT_GATEWAY', 'pesapal')
-
         if payment_mode == 'bank':
             # Read bank details from settings
             campaign = CampaignSettings.objects.filter(id=1).first()
@@ -164,39 +162,6 @@ class InitiatePaymentView(APIView):
                 "bank_account_name": campaign.bank_account_name if campaign else "Mengo Senior School — Tambula Mengo",
                 "bank_account_number": campaign.bank_account_number if campaign else "9030099999999"
             })
-        elif active_gateway == 'yo':
-            # Yo! Payments Integration Flow (Mobile Money USSD Prompt)
-            try:
-                backend_ipn = request.build_absolute_uri('/api/payments/yo-ipn/')
-                if backend_ipn.startswith("http://") and "tambulamengo.work.gd" in backend_ipn:
-                    backend_ipn = backend_ipn.replace("http://", "https://")
-
-                narrative = f"Tambula Mengo Run Kit ({size})" if is_kit else "Tambula Mengo Donation"
-                target_phone = phone or (donor.phone if donor else "0770000000")
-
-                yo_res = yo_payments.deposit_funds(
-                    reference=ref,
-                    amount=amount,
-                    phone=target_phone,
-                    narrative=narrative,
-                    ipn_url=backend_ipn
-                )
-
-                transaction_obj.provider_reference = yo_res.get("transaction_reference") or yo_res.get("issued_id")
-                transaction_obj.save()
-
-                return Response({
-                    "reference": ref,
-                    "gateway": "yo",
-                    "status": "pending",
-                    "message": "A USSD payment prompt has been sent to your phone. Please enter your Mobile Money PIN to authorize the payment."
-                })
-            except Exception as e:
-                logger.error(f"Yo! Payments payment initiation failed: {e}")
-                return Response(
-                    {"detail": f"Unable to connect to Yo! Payments gateway: {str(e)}"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
         else:
             # Pesapal integration flow
             try:
