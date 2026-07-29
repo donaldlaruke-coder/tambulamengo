@@ -172,7 +172,7 @@ function DonatePage() {
         setReference(resData.reference);
         if (resData.redirect_url) {
           window.location.href = resData.redirect_url;
-        } else if (resData.gateway === "yo" || resData.status === "pending") {
+        } else if (resData.gateway === "yo") {
           setPendingYoPayment(true);
           toast.success(resData.message || "A USSD prompt has been sent to your phone. Enter your PIN to complete payment.");
         } else if (resData.bank_name) {

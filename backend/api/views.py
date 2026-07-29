@@ -153,7 +153,7 @@ class InitiatePaymentView(APIView):
                 unit_price=unit_price
             )
 
-        active_gateway = getattr(settings, 'PAYMENT_GATEWAY', 'yo')
+        active_gateway = getattr(settings, 'PAYMENT_GATEWAY', 'pesapal')
 
         if payment_mode == 'bank':
             # Read bank details from settings
