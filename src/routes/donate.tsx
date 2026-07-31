@@ -253,9 +253,9 @@ function DonatePage() {
           }
         }, 4000);
       }
-    } catch (err) {
-      console.error(err);
-      toast.error("Could not start payment. Please try again.");
+    } catch (err: any) {
+      console.error("Payment initiation error:", err);
+      toast.error(err?.message || "Could not start payment. Please try again.");
     } finally {
       setBusy(false);
     }
