@@ -13,8 +13,10 @@ def get_base_url():
         return "https://paymentsapi1.yo.co.ug/ybs/task.php"
 
 def get_credentials():
-    username = getattr(settings, 'YO_PAYMENTS_API_USERNAME', '90002515585')
-    password = getattr(settings, 'YO_PAYMENTS_API_PASSWORD', '4053702456')
+    username = getattr(settings, 'YO_PAYMENTS_API_USERNAME', '')
+    password = getattr(settings, 'YO_PAYMENTS_API_PASSWORD', '')
+    if not username or not password:
+        raise ValueError("YO_PAYMENTS_API_USERNAME and YO_PAYMENTS_API_PASSWORD are missing in backend/.env on your server.")
     return username, password
 
 def deposit_funds(reference, amount, phone, narrative, ipn_url):
@@ -51,7 +53,7 @@ def deposit_funds(reference, amount, phone, narrative, ipn_url):
         "Content-Url": url
     }
 
-    logger.info(f"Submitting Yo! Payments acdepositfunds request for {reference} to {url}")
+    logger.info(f"Submitting Yo! Payments acdepositfunds request for {reference} (Account: {clean_phone}, Amount: {amount}) to {url}")
     try:
         response = requests.post(url, data=xml_request.encode('utf-8'), headers=headers, timeout=20)
         logger.info(f"Yo! Payments raw response: {response.text}")
@@ -73,6 +75,9 @@ def deposit_funds(reference, amount, phone, narrative, ipn_url):
         transaction_status = get_text("TransactionStatus")
         transaction_ref = get_text("TransactionReference") or get_text("TransactionID")
         issued_id = get_text("IssuedID")
+
+        if status != "OK":
+            raise ValueError(f"Yo! API Error: {status_detail or 'Rejected'} (Code: {status_code})")
 
         return {
             "status": status,
