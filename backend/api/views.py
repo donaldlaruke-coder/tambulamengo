@@ -163,48 +163,36 @@ class InitiatePaymentView(APIView):
                 "bank_account_number": campaign.bank_account_number if campaign else "9030099999999"
             })
         else:
-            # Pesapal integration flow
+            # Yo! Payments Integration Flow (Mobile Money USSD Push)
             try:
-                token = pesapal.get_auth_token()
+                backend_ipn = request.build_absolute_uri('/api/payments/yo-ipn/')
+                if backend_ipn.startswith("http://") and "tambulamengo.work.gd" in backend_ipn:
+                    backend_ipn = backend_ipn.replace("http://", "https://")
 
-                # Callback URL inside backend to process redirect
-                backend_callback = request.build_absolute_uri('/api/payments/pesapal-callback/')
+                narrative = f"Tambula Mengo Run Kit ({size})" if is_kit else "Tambula Mengo Donation"
+                target_phone = phone or (donor.phone if donor else "0770000000")
 
-                # IPN Webhook URL
-                backend_ipn = request.build_absolute_uri('/api/payments/pesapal-ipn/')
-
-                # Register IPN URL
-                ipn_id = pesapal.register_ipn(token, backend_ipn)
-
-                # Add 11.67% surcharge, but do not show to the user on our frontend UI
-                surcharged_amount = int(float(amount) * 1.1167)
-
-                # Submit Order to Pesapal
-                desc = f"Tambula Mengo Run Kit ({size})" if is_kit else "Tambula Mengo Donation"
-                pesapal_res = pesapal.submit_order(
-                    token=token,
-                    ipn_id=ipn_id,
+                yo_res = yo_payments.deposit_funds(
                     reference=ref,
-                    amount=surcharged_amount,
-                    description=desc,
-                    email=email,
-                    phone=phone,
-                    name=name,
-                    redirect_url=backend_callback
+                    amount=amount,
+                    phone=target_phone,
+                    narrative=narrative,
+                    ipn_url=backend_ipn
                 )
 
-                # Save order tracking id
-                transaction_obj.provider_reference = pesapal_res.get("order_tracking_id")
+                transaction_obj.provider_reference = yo_res.get("transaction_reference") or yo_res.get("issued_id")
                 transaction_obj.save()
 
                 return Response({
                     "reference": ref,
-                    "redirect_url": pesapal_res.get("redirect_url")
+                    "gateway": "yo",
+                    "status": "pending",
+                    "message": "A USSD payment prompt has been sent to your phone. Please enter your Mobile Money PIN to authorize the payment."
                 })
             except Exception as e:
-                logger.error(f"Pesapal payment initiation failed: {e}")
+                logger.error(f"Yo! Payments payment initiation failed: {e}")
                 return Response(
-                    {"detail": f"Pesapal initiation failed: {str(e)}"},
+                    {"detail": f"Yo! Payments failed: {str(e)}"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
