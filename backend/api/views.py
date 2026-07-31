@@ -303,39 +303,40 @@ class YoIPNView(APIView):
     """
     Yo! Payments Instant Payment Notification (IPN) Listener.
 
-    Yo! Payments sends a POST request to this URL when a transaction status changes.
-    Both GET and POST are accepted (Yo! may use either depending on config).
-
-    Standard IPN variables sent by Yo! Payments:
-    - transaction_status       : SUCCEEDED / FAILED / PENDING
-    - transaction_reference    : Yo! internal transaction ID
-    - external_reference       : Our internal reference (ExternalReference we sent)
-    - amount                   : Amount of the transaction
-    - narrative                : Description we sent
-    - account                  : Customer phone number
-    - transaction_initiation_id: Yo! initiation ID
-    - transaction_final_status : Final status code from MNO
-    - MNOTransactionReferenceId: Network (MTN/Airtel) transaction reference
-    - error                    : Error message if failed
-
-    Note: Any custom query string variables we added are prefixed with
-    customer_var_ or custom_var_ by the platform.
+    Per API section 6.3.2: When a payment is confirmed, this view responds with
+    a URL-encoded 'narrative' body. Yo! Payments reads this and automatically
+    sends that text as an SMS to the payer's mobile phone.
     """
     authentication_classes = (CsrfExemptSessionAuthentication,)
     permission_classes = [AllowAny]
 
+    def sms_response(self, sms_text):
+        """
+        Build the special IPN response that triggers an SMS to the payer.
+        Yo! Payments sends this exact text as an SMS to the payer's phone.
+
+        ════════════════════════════════════════════════════════════════
+        ✏️  TO EDIT THE SMS MESSAGE, scroll down to handle_ipn() below
+            and find the section marked:  ── SMS MESSAGE TEMPLATES ──
+        ════════════════════════════════════════════════════════════════
+        """
+        from urllib.parse import urlencode
+        from django.http import HttpResponse
+        body = urlencode({"narrative": sms_text})
+        logger.info(f"[Yo! IPN] Sending SMS trigger response: {sms_text}")
+        return HttpResponse(body, content_type="application/x-www-form-urlencoded", status=200)
+
     def handle_ipn(self, request):
-        # Collect POST body first, fall back to query params
+        from django.http import HttpResponse
+
         d = request.POST or request.data or request.query_params
         logger.info(f"[Yo! IPN] Incoming notification — raw data: {dict(d)}")
 
-        # ── Standard IPN variables ──────────────────────────────────────────────
-        # Transaction status: SUCCEEDED / FAILED / PENDING
+        # ── Parse all standard Yo! IPN variables ──────────────────────
         tx_status = str(
             d.get("transaction_status") or d.get("TransactionStatus") or ""
         ).strip().upper()
 
-        # Our reference we passed as ExternalReference when initiating
         external_ref = (
             d.get("external_reference")
             or d.get("external_ref")
@@ -343,80 +344,123 @@ class YoIPNView(APIView):
             or d.get("DepositTransactionSucceededExternalReference")
         )
 
-        # Yo! internal transaction ID
         yo_tx_ref = (
             d.get("transaction_reference")
             or d.get("TransactionReference")
             or d.get("transaction_initiation_id")
         )
 
-        # Network (MTN/Airtel) reference
         mno_ref = (
             d.get("MNOTransactionReferenceId")
             or d.get("network_ref")
             or d.get("mno_ref")
         )
 
-        # Other useful fields
-        amount      = d.get("amount") or d.get("Amount")
-        account     = d.get("account") or d.get("Account")
-        narrative   = d.get("narrative") or d.get("custom_var_narrative") or d.get("Narrative")
-        error_msg   = d.get("error") or d.get("Error") or d.get("StatusDetail")
-        final_status = d.get("transaction_final_status") or d.get("TransactionFinalStatus")
+        amount    = d.get("amount") or d.get("Amount")
+        error_msg = d.get("error") or d.get("Error") or d.get("StatusDetail")
 
         logger.info(
             f"[Yo! IPN] external_ref={external_ref} | status={tx_status} | "
-            f"yo_ref={yo_tx_ref} | mno_ref={mno_ref} | amount={amount} | "
-            f"account={account} | final_status={final_status} | error={error_msg}"
+            f"yo_ref={yo_tx_ref} | mno_ref={mno_ref} | amount={amount} | error={error_msg}"
         )
 
         if not external_ref:
-            logger.warning("[Yo! IPN] No external_reference in notification — ignoring.")
-            return Response({"status": "OK"}, status=status.HTTP_200_OK)
+            logger.warning("[Yo! IPN] No external_reference — ignoring.")
+            return HttpResponse("OK", status=200)
 
         tx = Transaction.objects.filter(internal_reference=external_ref).first()
         if not tx:
-            logger.warning(f"[Yo! IPN] No transaction found for reference: {external_ref}")
-            return Response({"status": "OK"}, status=status.HTTP_200_OK)
+            logger.warning(f"[Yo! IPN] No transaction found for: {external_ref}")
+            return HttpResponse("OK", status=200)
 
-        # Save the best available provider reference
+        # Save best available provider reference
         provider_ref = mno_ref or yo_tx_ref
         if provider_ref and not tx.provider_reference:
             tx.provider_reference = provider_ref
 
+        # ── Lookup donor info for personalised SMS ─────────────────────
+        donor = tx.donor
+        donor_name = (
+            (donor.name if donor else None)
+            or tx.donor_display_name
+            or "Supporter"
+        )
+        tx_ref = tx.internal_reference
+
+        # Format the amount nicely e.g. UGX 50,000
+        try:
+            formatted_amount = f"UGX {int(float(tx.amount or amount or 0)):,}"
+        except Exception:
+            formatted_amount = f"UGX {tx.amount or amount or ''}"
+
+        is_kit = tx.type == 'kit_purchase'
+
+        # ── Handle status ──────────────────────────────────────────────
         if tx_status in ["SUCCEEDED", "SUCCESS", "COMPLETED"]:
             tx.status = 'confirmed'
             if not tx.confirmed_at:
                 tx.confirmed_at = timezone.now()
             tx.save()
-            logger.info(f"[Yo! IPN] ✅ Transaction {external_ref} CONFIRMED. MNO ref: {mno_ref}")
+            logger.info(f"[Yo! IPN] ✅ {external_ref} CONFIRMED. MNO ref: {mno_ref}")
+
+            # ════════════════════════════════════════════════════════════
+            # ✏️  ── SMS MESSAGE TEMPLATES ────────────────────────────────
+            #   Edit these messages to whatever you want Yo! to SMS
+            #   to the payer's phone after their payment is confirmed.
+            #
+            #   Available variables:
+            #     donor_name       → payer's name (e.g. "John Ssali")
+            #     formatted_amount → e.g. "UGX 50,000"
+            #     tx_ref           → your internal reference
+            #     mno_ref          → MTN/Airtel transaction code
+            # ════════════════════════════════════════════════════════════
+
+            if is_kit:
+                # SMS for kit / run registration payments
+                sms = (
+                    f"Dear {donor_name}, your kit payment of {formatted_amount} "
+                    f"for Tambula Mengo Run has been received. "
+                    f"Ref: {tx_ref}. "
+                    f"Present this reference at kit collection. "
+                    f"Go Mengo! Thank you."
+                )
+            else:
+                # SMS for general donations
+                sms = (
+                    f"Dear {donor_name}, we have received your donation of {formatted_amount} "
+                    f"to Mengo Senior School - Tambula Mengo. "
+                    f"Ref: {tx_ref}. "
+                    f"May you be abundantly blessed! - Mengo Senior School."
+                )
+
+            # ════════════════════════════════════════════════════════════
+            # Respond with the SMS trigger (do NOT change this line)
+            return self.sms_response(sms)
 
         elif tx_status in ["FAILED", "CANCELLED", "REJECTED", "INSUFFICIENT_BALANCE"]:
             tx.status = 'failed'
             tx.message = error_msg or tx_status
             tx.save()
-            logger.info(f"[Yo! IPN] ❌ Transaction {external_ref} FAILED. Reason: {error_msg or tx_status}")
+            logger.info(f"[Yo! IPN] ❌ {external_ref} FAILED: {error_msg or tx_status}")
 
         elif tx_status == "PENDING":
-            # Still pending — trigger a manual status check
             tx.save()
-            logger.info(f"[Yo! IPN] ⏳ Transaction {external_ref} still PENDING — will check later.")
+            logger.info(f"[Yo! IPN] ⏳ {external_ref} PENDING — checking later.")
             check_and_update_yo_transaction(tx)
 
         else:
-            # Unknown status — do a live check to be safe
-            logger.warning(f"[Yo! IPN] Unknown status '{tx_status}' for {external_ref} — doing live check.")
+            logger.warning(f"[Yo! IPN] Unknown status '{tx_status}' for {external_ref} — live check.")
             tx.save()
             check_and_update_yo_transaction(tx)
 
-        return Response({"status": "OK"}, status=status.HTTP_200_OK)
+        return HttpResponse("OK", status=200)
 
     def post(self, request):
         return self.handle_ipn(request)
 
     def get(self, request):
-        # Yo! sometimes sends GET for IPN depending on config
         return self.handle_ipn(request)
+
 
 
 @method_decorator(csrf_exempt, name='dispatch')
