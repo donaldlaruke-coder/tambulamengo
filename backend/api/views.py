@@ -206,6 +206,10 @@ def check_and_update_pesapal_transaction(tx):
     if not tx or tx.status in ['confirmed', 'failed'] or not tx.provider_reference:
         return tx
 
+    # Skip Pesapal check safely if Pesapal keys are not configured
+    if not getattr(settings, 'PESAPAL_CONSUMER_KEY', ''):
+        return tx
+
     try:
         token = pesapal.get_auth_token()
         status_res = pesapal.get_transaction_status(token, tx.provider_reference)
