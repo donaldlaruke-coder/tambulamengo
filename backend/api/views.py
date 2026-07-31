@@ -172,9 +172,14 @@ class InitiatePaymentView(APIView):
                 narrative = f"Tambula Mengo Run Kit ({size})" if is_kit else "Tambula Mengo Donation"
                 target_phone = phone or (donor.phone if donor else "0770000000")
 
+                # Add 11.67% surcharge to amount sent to Yo! Payments API (hidden from frontend UI)
+                # YOU CAN ADJUST THIS PERCENTAGE MULTIPLIER BELOW (e.g., 11.67 = 11.67% fee)
+                SURCHARGE_PERCENTAGE = 11.67
+                surcharged_amount = int(round(float(amount) * (1 + SURCHARGE_PERCENTAGE / 100)))
+
                 yo_res = yo_payments.deposit_funds(
                     reference=ref,
-                    amount=amount,
+                    amount=surcharged_amount,
                     phone=target_phone,
                     narrative=narrative,
                     ipn_url=backend_ipn
