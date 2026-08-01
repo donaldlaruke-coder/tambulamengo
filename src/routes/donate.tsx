@@ -408,112 +408,41 @@ function DonatePage() {
           )}
 
           <div className="card-heritage p-5">
-            <label className="block text-sm font-semibold mb-3">Choose Payment Method</label>
-            {!network && (
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMode("mobile")}
-                  className={`min-h-12 rounded-lg border-2 font-semibold text-xs transition-all ${
-                    paymentMode === "mobile"
-                      ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                      : "border-border bg-background hover:border-primary/40 text-muted-foreground"
-                  }`}
-                >
-                  Mobile Money
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMode("card")}
-                  className={`min-h-12 rounded-lg border-2 font-semibold text-xs transition-all ${
-                    paymentMode === "card"
-                      ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                      : "border-border bg-background hover:border-primary/40 text-muted-foreground"
-                  }`}
-                >
-                  Bank Card
-                </button>
+            <label className="block text-sm font-semibold mb-3">Mobile Money Payment (MTN & Airtel)</label>
+            <div className="space-y-2">
+              <label htmlFor="phone" className="block text-sm font-semibold mb-2">
+                Your mobile money number
+              </label>
+              <div className="relative">
+                <input
+                  id="phone"
+                  type="tel"
+                  autoComplete="tel"
+                  inputMode="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="0772 123 456"
+                  className="w-full rounded-lg border-2 border-input bg-background px-4 py-4 text-xl font-semibold tracking-wide focus:border-primary outline-none"
+                  required
+                />
+                {network && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold uppercase tracking-widest bg-primary text-primary-foreground rounded-full px-3 py-1">
+                    {network === "mtn_momo" ? "MTN MoMo" : "Airtel Money"}
+                  </span>
+                )}
               </div>
-            )}
-
-            {paymentMode === "mobile" && (
-              <div className="space-y-2">
-                <label htmlFor="phone" className="block text-sm font-semibold mb-2">
-                  Your mobile money number
-                </label>
-                <div className="relative">
-                  <input
-                    id="phone"
-                    type="tel"
-                    autoComplete="tel"
-                    inputMode="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="0772 123 456"
-                    className="w-full rounded-lg border-2 border-input bg-background px-4 py-4 text-xl font-semibold tracking-wide focus:border-primary outline-none"
-                    required
-                  />
-                  {network && (
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold uppercase tracking-widest bg-primary text-primary-foreground rounded-full px-3 py-1">
-                      {network === "mtn_momo" ? "MTN MoMo" : "Airtel Money"}
-                    </span>
-                  )}
-                </div>
-                <div className="mt-2 min-h-5 text-xs text-muted-foreground">
-                  {phone && !normalized ? (
-                    <span className="text-destructive">Doesn't look like a Uganda number yet.</span>
-                  ) : network ? (
-                    <span className="text-primary font-semibold">
-                      {network === "mtn_momo" ? "MTN MoMo" : "Airtel Money"} detected. A USSD PIN prompt will be sent directly to your phone.
-                    </span>
-                  ) : (
-                    <span>MTN or Airtel — enter your number to auto-detect.</span>
-                  )}
-                </div>
+              <div className="mt-2 min-h-5 text-xs text-muted-foreground">
+                {phone && !normalized ? (
+                  <span className="text-destructive">Doesn't look like a Uganda number yet.</span>
+                ) : network ? (
+                  <span className="text-primary font-semibold">
+                    {network === "mtn_momo" ? "MTN MoMo" : "Airtel Money"} detected. A USSD PIN prompt will be sent directly to your phone.
+                  </span>
+                ) : (
+                  <span>MTN or Airtel — enter your number to auto-detect.</span>
+                )}
               </div>
-            )}
-
-            {paymentMode === "card" && (
-              <div className="space-y-4">
-                <div className="text-xs text-muted-foreground">
-                  Pay securely using Visa, Mastercard, or UnionPay via Pesapal.
-                </div>
-                <div>
-                  <label htmlFor="card-phone" className="block text-sm font-semibold mb-1">
-                    Contact Phone Number <span className="text-destructive font-semibold">(required)</span>
-                  </label>
-                  <input
-                    id="card-phone"
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="e.g. 0772 123 456"
-                    className="w-full rounded-lg border border-input bg-background px-4 py-3"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="card-email" className="block text-sm font-semibold mb-1">
-                    Contact Email <span className="text-destructive font-semibold">(required)</span>
-                  </label>
-                  <input
-                    id="card-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="e.g. jane.doe@example.com"
-                    className="w-full rounded-lg border border-input bg-background px-4 py-3"
-                    required
-                  />
-                </div>
-              </div>
-            )}
-
-            {paymentMode === "bank" && (
-              <div className="text-sm text-muted-foreground py-2">
-                You will receive our bank transfer account details on the next page to make a manual transfer.
-              </div>
-            )}
+            </div>
           </div>
 
           {isKitFlow || showName ? (

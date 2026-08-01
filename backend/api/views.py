@@ -26,6 +26,7 @@ from .serializers import (
 )
 from . import pesapal
 from . import yo_payments
+from . import egosms
 
 logger = logging.getLogger(__name__)
 
@@ -432,6 +433,21 @@ class YoIPNView(APIView):
                     f"Ref: {tx_ref}. "
                     f"May you be abundantly blessed! - Mengo Senior School."
                 )
+
+            # 📱 Trigger EgoSMS Gateway (JSON API) if configured
+            try:
+                target_phone = (donor.phone if donor else None) or account
+                if target_phone:
+                    if is_kit:
+                        first_item = tx.order_items.first()
+                        kit_name = first_item.kit_product.name if (first_item and first_item.kit_product) else "Tambula Mengo Run Kit"
+                        size = first_item.size if first_item else ""
+                        quantity = first_item.quantity if first_item else 1
+                        egosms.send_kit_purchase_sms(target_phone, donor_name, kit_name, size, quantity, tx.amount, tx_ref)
+                    else:
+                        egosms.send_donation_sms(target_phone, donor_name, tx.amount, tx_ref)
+            except Exception as sms_err:
+                logger.error(f"[EgoSMS] Error sending SMS: {sms_err}")
 
             # ════════════════════════════════════════════════════════════
             # Respond with the SMS trigger (do NOT change this line)
