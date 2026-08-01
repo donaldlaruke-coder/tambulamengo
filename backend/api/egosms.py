@@ -62,6 +62,7 @@ def send_sms(to_phone, message):
 def send_kit_purchase_sms(phone, donor_name, kit_name, size, quantity, amount, reference):
     """
     Helper to send a formatted SMS notification to a kit buyer upon payment confirmation.
+    Includes helplines, representative pickup policy, and size swap rules.
     """
     name = donor_name or "Supporter"
     size_str = f" (Size {size})" if size else ""
@@ -73,10 +74,11 @@ def send_kit_purchase_sms(phone, donor_name, kit_name, size, quantity, amount, r
         formatted_amount = f"UGX {amount}"
 
     message = (
-        f"Dear {name}, your payment of {formatted_amount} for {qty_str}{kit_name}{size_str} "
-        f"at Tambula Mengo Run has been confirmed! "
-        f"Ref: {reference}. "
-        f"Present this ref code at Mengo Senior School pavilion for kit pickup. Go Mengo!"
+        f"Dear {name}, payment of {formatted_amount} for {qty_str}{kit_name}{size_str} "
+        f"is confirmed! Ref: {reference}. "
+        f"Pickup: Mengo SS Pavilion. Representative/child pickup allowed with QR code. "
+        f"Size swaps permitted at pavilion (subject to stock). "
+        f"Helplines: +256783279346 / +256784455449. Go Mengo!"
     )
     return send_sms(phone, message)
 
@@ -91,9 +93,10 @@ def send_donation_sms(phone, donor_name, amount, reference):
         formatted_amount = f"UGX {amount}"
 
     message = (
-        f"Dear {name}, we have received your generous gift of {formatted_amount} "
+        f"Dear {name}, we have received your donation of {formatted_amount} "
         f"to Mengo Senior School - Tambula Mengo. "
         f"Ref: {reference}. "
+        f"Helplines: +256783279346 / +256784455449. "
         f"May you be abundantly blessed! Thank you."
     )
     return send_sms(phone, message)

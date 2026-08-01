@@ -420,10 +420,10 @@ class YoIPNView(APIView):
                 # SMS for kit / run registration payments
                 sms = (
                     f"Dear {donor_name}, your kit payment of {formatted_amount} "
-                    f"for Tambula Mengo Run has been received. "
+                    f"for Tambula Mengo Run is confirmed! "
                     f"Ref: {tx_ref}. "
-                    f"Present this reference at kit collection. "
-                    f"Go Mengo! Thank you."
+                    f"Pickup at Mengo SS Pavilion (rep/child pickup & size swaps allowed). "
+                    f"Helplines: +256783279346 / +256784455449. Thank you!"
                 )
             else:
                 # SMS for general donations
@@ -431,6 +431,7 @@ class YoIPNView(APIView):
                     f"Dear {donor_name}, we have received your donation of {formatted_amount} "
                     f"to Mengo Senior School - Tambula Mengo. "
                     f"Ref: {tx_ref}. "
+                    f"Helplines: +256783279346 / +256784455449. "
                     f"May you be abundantly blessed! - Mengo Senior School."
                 )
 

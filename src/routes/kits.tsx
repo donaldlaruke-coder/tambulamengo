@@ -158,9 +158,18 @@ function KitsPage() {
                 >
                   Continue to payment
                 </button>
-                <p className="text-xs text-muted-foreground text-center">
-                  Kits are collected at the school pavilion the week before the walk.
-                </p>
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2 text-xs text-foreground mt-4">
+                  <div className="font-bold text-primary text-sm">📍 Kit Collection & Helpline</div>
+                  <div>• <strong>Venue:</strong> Mengo Senior School Pavilion</div>
+                  <div>• <strong>Representative Pickup:</strong> Allowed (e.g. child can collect on parent's behalf with QR Pass)</div>
+                  <div>• <strong>Size Swaps:</strong> Permitted at the pavilion subject to stock availability</div>
+                  <div className="pt-2 border-t border-primary/10 flex flex-wrap gap-2 items-center">
+                    <span className="font-semibold text-primary">Helplines:</span>
+                    <a href="tel:+256783279346" className="text-primary underline font-bold">+256 783 279 346</a>
+                    <span>·</span>
+                    <a href="tel:+256784455449" className="text-primary underline font-bold">+256 784 455 449</a>
+                  </div>
+                </div>
               </div>
             )}
           </>
