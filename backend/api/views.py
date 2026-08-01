@@ -839,3 +839,94 @@ class AdminCampaignView(APIView):
 
         campaign.save()
         return Response({'success': True})
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class AdminScanKitView(APIView):
+    """
+    Admin QR Scan / Kit Fulfillment Endpoint.
+    Scans or checks a kit transaction reference.
+    Marks kit_collected = True and records timestamp & admin username.
+    Prevents duplicate pick-ups / reuse of QR codes.
+    """
+    authentication_classes = (CsrfExemptSessionAuthentication,)
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return Response({'detail': 'Staff login required to scan and mark kits.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        reference = str(request.data.get('reference', '')).strip()
+        if not reference:
+            return Response({'detail': 'Reference is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if "ref=" in reference:
+            reference = reference.split("ref=")[-1].split("&")[0]
+
+        tx = Transaction.objects.filter(internal_reference=reference).first()
+        if not tx:
+            tx = Transaction.objects.filter(provider_reference=reference).first()
+
+        if not tx:
+            return Response({'detail': f'No transaction found matching reference "{reference}".'}, status=status.HTTP_404_NOT_FOUND)
+
+        if tx.status != 'confirmed':
+            return Response({'detail': f'Transaction status is "{tx.status.upper()}". Kit collection requires a CONFIRMED transaction.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if tx.type != 'kit_purchase':
+            return Response({'detail': 'This transaction is a general donation, not a kit purchase.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        donor_name = (tx.donor.name if tx.donor else None) or tx.donor_display_name or "Valued Supporter"
+        donor_phone = (tx.donor.phone if tx.donor else None) or "N/A"
+        
+        items = []
+        for item in tx.order_items.all():
+            items.append({
+                "name": item.kit_product.name if item.kit_product else "Run Kit",
+                "size": item.size or "N/A",
+                "quantity": item.quantity,
+                "unit_price": item.unit_price
+            })
+
+        # CHECK IF ALREADY PICKED UP / COLLECTED
+        if tx.kit_collected:
+            picked_time_str = tx.kit_collected_at.strftime("%Y-%m-%d %H:%M:%S") if tx.kit_collected_at else "Earlier"
+            return Response({
+                'success': False,
+                'already_picked': True,
+                'message': f'⚠️ ALREADY COLLECTED! This kit was picked up on {picked_time_str} by {tx.kit_collected_by or "Admin"}. This QR code is UNUSABLE again.',
+                'reference': tx.internal_reference,
+                'donor_name': donor_name,
+                'donor_phone': donor_phone,
+                'picked_at': str(tx.kit_collected_at),
+                'picked_by': tx.kit_collected_by,
+                'items': items,
+                'amount': tx.amount
+            }, status=status.HTTP_200_OK)
+
+        # MARK AS PICKED UP NOW
+        now = timezone.now()
+        tx.kit_collected = True
+        tx.kit_collected_at = now
+        tx.kit_collected_by = request.user.username
+        tx.save()
+
+        for item in tx.order_items.all():
+            item.fulfillment_status = 'picked_up'
+            item.picked_up_at = now
+            item.picked_up_by = request.user.username
+            item.save()
+
+        return Response({
+            'success': True,
+            'already_picked': False,
+            'message': '✅ KIT VERIFIED & MARKED AS PICKED UP!',
+            'reference': tx.internal_reference,
+            'donor_name': donor_name,
+            'donor_phone': donor_phone,
+            'picked_at': str(now),
+            'picked_by': request.user.username,
+            'items': items,
+            'amount': tx.amount
+        }, status=status.HTTP_200_OK)
+

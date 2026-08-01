@@ -7,7 +7,7 @@ from .views import (
     AdminLoginView, AdminLogoutView, AdminMeView,
     AdminStatsView, AdminTransactionsView,
     AdminConfirmTransactionView, AdminRejectTransactionView,
-    AdminKitsView, AdminKitToggleView, AdminCampaignView
+    AdminKitsView, AdminKitToggleView, AdminCampaignView, AdminScanKitView
 )
 
 urlpatterns = [
@@ -32,4 +32,5 @@ urlpatterns = [
     path('admin-api/kits/', AdminKitsView.as_view(), name='admin-kits'),
     path('admin-api/kit-toggle/', AdminKitToggleView.as_view(), name='admin-kit-toggle'),
     path('admin-api/campaign/', AdminCampaignView.as_view(), name='admin-campaign'),
+    path('admin-api/scan-kit/', AdminScanKitView.as_view(), name='admin-scan-kit'),
 ]

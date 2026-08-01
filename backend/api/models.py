@@ -75,6 +75,9 @@ class Transaction(models.Model):
     message = models.TextField(blank=True, null=True)
     is_anonymous = models.BooleanField(default=False)
     donor_display_name = models.CharField(max_length=255, blank=True, null=True)
+    kit_collected = models.BooleanField(default=False)
+    kit_collected_at = models.DateTimeField(blank=True, null=True)
+    kit_collected_by = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     confirmed_at = models.DateTimeField(blank=True, null=True)
 

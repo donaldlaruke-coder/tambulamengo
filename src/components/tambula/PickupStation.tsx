@@ -31,93 +31,53 @@ const SELECT =
 export function PickupStation() {
   const qc = useQueryClient();
   const [query, setQuery] = useState("");
-  const [submitted, setSubmitted] = useState("");
-  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<any>(null);
+  const [loadingScan, setLoadingScan] = useState(false);
 
-  const lookup = useQuery({
-    queryKey: ["pickup-lookup", submitted],
-    enabled: submitted.length > 2,
-    queryFn: async (): Promise<PickupOrder | null> => {
-      const raw = submitted.trim();
-      let refToSearch = raw.toUpperCase();
-      const match = raw.match(/(KIT|TM)-[A-Z0-9]{4}-[A-Z0-9]{4}/i);
-      if (match) {
-        refToSearch = match[0].toUpperCase();
+  async function handleScanSubmit(refToSearch: string) {
+    if (!refToSearch.trim()) return;
+    setLoadingScan(true);
+    setScanResult(null);
+
+    // Extract reference from URL if a full QR link was scanned
+    let cleanRef = refToSearch.trim();
+    if (cleanRef.includes("ref=")) {
+      cleanRef = cleanRef.split("ref=")[1].split("&")[0];
+    }
+
+    try {
+      const res = await fetch(`${getBackendUrl()}/api/admin-api/scan-kit/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ reference: cleanRef }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.detail || "Verification failed");
+        setScanResult({ error: data.detail || "Invalid or Unconfirmed Kit Reference" });
       } else {
-        try {
-          const parsed = JSON.parse(raw);
-          if (parsed.ref) refToSearch = parsed.ref.toUpperCase();
-        } catch {}
-      }
-      const phone = normalizeUgPhone(raw);
-      // 1. Try exact reference match
-      const byRef = await supabase
-        .from("transactions")
-        .select(SELECT)
-        .eq("type", "kit_purchase")
-        .eq("internal_reference", refToSearch)
-        .maybeSingle();
-      if (byRef.data) return byRef.data as unknown as PickupOrder;
-      // 2. Try phone lookup via donors
-      if (phone) {
-        const { data: donors } = await supabase
-          .from("donors")
-          .select("id")
-          .eq("phone", phone)
-          .limit(5);
-        const ids = (donors ?? []).map((d) => d.id);
-        if (ids.length) {
-          const { data } = await supabase
-            .from("transactions")
-            .select(SELECT)
-            .eq("type", "kit_purchase")
-            .in("donor_id", ids)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          return (data as unknown as PickupOrder | null) ?? null;
+        setScanResult(data);
+        if (data.already_picked) {
+          toast.error("⚠️ Already Collected! This kit pass is unusable again.");
+        } else {
+          toast.success("✅ Kit Marked as Picked Up!");
         }
+        qc.invalidateQueries({ queryKey: ["pickup-recent"] });
       }
-      return null;
-    },
-  });
-
-  const recent = useQuery({
-    queryKey: ["pickup-recent"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("kit_order_items")
-        .select("id, picked_up_at, quantity, size, transaction:transactions(internal_reference, donor:donors(name, phone)), kit:kit_products(name)")
-        .not("picked_up_at", "is", null)
-        .order("picked_up_at", { ascending: false })
-        .limit(10);
-      return data ?? [];
-    },
-  });
-
-  const markPickup = useMutation({
-    mutationFn: async (order: PickupOrder) => {
-      const { data: user } = await supabase.auth.getUser();
-      const now = new Date().toISOString();
-      const ids = order.kit_items.filter((k) => !k.picked_up_at).map((k) => k.id);
-      if (!ids.length) throw new Error("Already picked up");
-      const { error } = await supabase
-        .from("kit_order_items")
-        .update({ picked_up_at: now, picked_up_by: user.user?.id ?? null })
-        .in("id", ids);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Kit marked as picked up");
-      qc.invalidateQueries({ queryKey: ["pickup-lookup"] });
-      qc.invalidateQueries({ queryKey: ["pickup-recent"] });
-    },
-    onError: (e) => toast.error((e as Error).message),
-  });
+    } catch (err) {
+      console.error(err);
+      toast.error("Network error checking kit pass");
+    } finally {
+      setLoadingScan(false);
+    }
+  }
 
   function runSearch(q: string) {
     setQuery(q);
     setSubmitted(q.trim());
+    handleScanSubmit(q);
   }
 
   return (
@@ -151,16 +111,47 @@ export function PickupStation() {
         )}
       </div>
 
-      {submitted && (
+      {loadingScan && (
+        <div className="card-heritage p-6 text-center text-muted-foreground">
+          Verifying kit pass with server…
+        </div>
+      )}
+
+      {scanResult && !loadingScan && (
         <div className="card-heritage p-5">
-          {lookup.isLoading ? (
-            <div className="text-muted-foreground py-6 text-center">Searching…</div>
-          ) : !lookup.data ? (
-            <div className="text-muted-foreground py-6 text-center">
-              No kit order found for “{submitted}”. Check the reference or phone.
+          {scanResult.error ? (
+            <div className="rounded-xl border-2 border-amber-500/40 bg-amber-500/10 p-4 text-amber-800 dark:text-amber-200 text-sm font-semibold">
+              ❌ {scanResult.error}
+            </div>
+          ) : scanResult.already_picked ? (
+            <div className="rounded-xl border-2 border-red-500 bg-red-500/10 p-5 text-left space-y-3 animate-in fade-in">
+              <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-bold text-lg">
+                <span>⚠️ ALREADY COLLECTED — UNUSABLE AGAIN</span>
+              </div>
+              <p className="text-sm text-red-700 dark:text-red-300 font-medium">
+                {scanResult.message}
+              </p>
+              <div className="text-xs bg-background/80 p-3 rounded-lg border border-red-200 dark:border-red-900/50 space-y-1">
+                <div><strong>Payer:</strong> {scanResult.donor_name} ({scanResult.donor_phone})</div>
+                <div><strong>Reference:</strong> {scanResult.reference}</div>
+                <div><strong>Items:</strong> {scanResult.items?.map((i: any) => `${i.quantity}x ${i.name} (${i.size})`).join(", ")}</div>
+              </div>
             </div>
           ) : (
-            <OrderCard order={lookup.data} onMark={() => markPickup.mutate(lookup.data!)} busy={markPickup.isPending} />
+            <div className="rounded-xl border-2 border-green-500 bg-green-500/10 p-5 text-left space-y-3 animate-in fade-in">
+              <div className="flex items-center gap-2 text-green-600 dark:text-green-400 font-bold text-lg">
+                <span>✅ KIT VERIFIED & MARKED AS PICKED UP</span>
+              </div>
+              <p className="text-sm text-green-700 dark:text-green-300 font-semibold">
+                {scanResult.message}
+              </p>
+              <div className="text-xs bg-background/80 p-3 rounded-lg border border-green-200 dark:border-green-900/50 space-y-1">
+                <div><strong>Payer:</strong> {scanResult.donor_name} ({scanResult.donor_phone})</div>
+                <div><strong>Reference:</strong> {scanResult.reference}</div>
+                <div><strong>Items Released:</strong> {scanResult.items?.map((i: any) => `${i.quantity}x ${i.name} (${i.size})`).join(", ")}</div>
+                <div className="text-muted-foreground pt-1">Verified by {scanResult.picked_by} at {scanResult.picked_at}</div>
+              </div>
+            </div>
           )}
         </div>
       )}

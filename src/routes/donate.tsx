@@ -86,37 +86,119 @@ function DonatePage() {
   }, [pendingYoPayment, reference]);
 
   useEffect(() => {
-    if (step === "success" && reference) {
-      fetch(`${getBackendUrl()}/api/payments/verify/?reference=${reference}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data && !data.detail) {
-            setTxDetails(data);
-          }
-        })
-        .catch((err) => console.error("Error fetching transaction details:", err));
-    }
-  }, [step, reference]);
-
-  const qrPayload = useMemo(() => {
-    if (!reference) return "";
-    const payload = {
-      ref: reference,
-      trans_id: txDetails?.provider_reference || txDetails?.confirmation_code || reference,
-      confirmation_code: txDetails?.confirmation_code || reference,
-      type: txDetails?.type_display || (isKitFlow ? "Kit Purchase" : "Donation"),
-      name: txDetails?.donor_name || name || "Anonymous",
-      phone: txDetails?.donor_phone || phone || "N/A",
-      amount: txDetails?.amount ? formatUGX(txDetails.amount) : formatUGX(amount),
-      time: txDetails?.confirmed_at || txDetails?.created_at || new Date().toISOString()
+    if (!pendingYoPayment) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "A USSD payment prompt has been sent to your phone! Please complete PIN entry before leaving or refreshing this page.";
+      return e.returnValue;
     };
-    return JSON.stringify(payload);
-  }, [reference, txDetails, isKitFlow, name, phone, amount]);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [pendingYoPayment]);
 
   const network = useMemo(() => detectUgNetwork(phone), [phone]);
   const normalized = useMemo(() => normalizeUgPhone(phone), [phone]);
-  const method = paymentMode === "bank" ? "bank" : paymentMode === "card" ? "card" : (network ?? "mtn_momo");
+
+  // If a mobile number is entered, automatically force Mobile Money mode
+  useEffect(() => {
+    if (network) {
+      setPaymentMode("mobile");
+    }
+  }, [network]);
+
+  const method = paymentMode === "card" ? "card" : (network ?? "mtn_momo");
   const isMobileMoney = paymentMode === "mobile";
+
+  function downloadPassImage() {
+    try {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      canvas.width = 600;
+      canvas.height = 800;
+
+      // Background
+      const grad = ctx.createLinearGradient(0, 0, 0, 800);
+      grad.addColorStop(0, "#0F172A");
+      grad.addColorStop(1, "#1E293B");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 600, 800);
+
+      // Header Banner
+      ctx.fillStyle = "#8B0000";
+      ctx.fillRect(0, 0, 600, 100);
+
+      // Header text
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "bold 24px Georgia, serif";
+      ctx.textAlign = "center";
+      ctx.fillText("MENGO SENIOR SCHOOL", 300, 45);
+      ctx.font = "14px sans-serif";
+      ctx.fillStyle = "#FDE047";
+      ctx.fillText("Tambula Mengo Run — Official Digital Pass", 300, 75);
+
+      // Card Body
+      ctx.fillStyle = "#FFFFFF";
+      if (typeof ctx.roundRect === "function") {
+        ctx.roundRect(30, 120, 540, 640, 16);
+        ctx.fill();
+      } else {
+        ctx.fillRect(30, 120, 540, 640);
+      }
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#64748B";
+      ctx.font = "bold 12px sans-serif";
+      ctx.fillText("DIGITAL KIT TICKET PASS", 60, 160);
+
+      ctx.fillStyle = "#0F172A";
+      ctx.font = "bold 22px Georgia, serif";
+      ctx.fillText(txDetails?.donor_name || name || "Valued Supporter", 60, 195);
+
+      ctx.fillStyle = "#334155";
+      ctx.font = "14px sans-serif";
+      ctx.fillText(`Phone: ${txDetails?.donor_phone || phone || "N/A"}`, 60, 225);
+      ctx.fillText(`Amount Paid: ${txDetails?.amount ? formatUGX(txDetails.amount) : formatUGX(amount)}`, 60, 250);
+      ctx.fillText(`Reference: ${reference}`, 60, 275);
+      ctx.fillText(`Date: ${txDetails?.confirmed_at ? new Date(txDetails.confirmed_at).toLocaleString() : new Date().toLocaleString()}`, 60, 300);
+
+      // Render QR code from SVG
+      const svgElement = document.querySelector("#qr-pass-svg") as SVGElement;
+      if (svgElement) {
+        const xml = new XMLSerializer().serializeToString(svgElement);
+        const svg64 = btoa(xml);
+        const image = new Image();
+        image.onload = () => {
+          ctx.drawImage(image, 175, 340, 250, 250);
+
+          ctx.fillStyle = "#0F172A";
+          ctx.font = "bold 16px monospace";
+          ctx.textAlign = "center";
+          ctx.fillText(reference, 300, 620);
+
+          ctx.fillStyle = "#DC2626";
+          ctx.font = "bold 13px sans-serif";
+          ctx.fillText("⚠️ Present this QR Pass at Pavilion for Kit Pickup", 300, 660);
+          ctx.fillStyle = "#64748B";
+          ctx.font = "11px sans-serif";
+          ctx.fillText("Valid for 1-time kit collection. Marked as used upon scanning.", 300, 685);
+
+          const link = document.createElement("a");
+          link.download = `TambulaMengo_KitPass_${reference}.png`;
+          link.href = canvas.toDataURL("image/png");
+          link.click();
+          toast.success("Pass downloaded successfully!");
+        };
+        image.src = "data:image/svg+xml;base64," + svg64;
+      } else {
+        toast.error("Could not capture QR code. Please take a screenshot instead.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to generate download. Please take a screenshot.");
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -327,30 +409,32 @@ function DonatePage() {
 
           <div className="card-heritage p-5">
             <label className="block text-sm font-semibold mb-3">Choose Payment Method</label>
-            <div className="grid grid-cols-2 gap-2 mb-4">
-              <button
-                type="button"
-                onClick={() => setPaymentMode("mobile")}
-                className={`min-h-12 rounded-lg border-2 font-semibold text-xs transition-all ${
-                  paymentMode === "mobile"
-                    ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                    : "border-border bg-background hover:border-primary/40 text-muted-foreground"
-                }`}
-              >
-                Mobile Money
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMode("card")}
-                className={`min-h-12 rounded-lg border-2 font-semibold text-xs transition-all ${
-                  paymentMode === "card"
-                    ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                    : "border-border bg-background hover:border-primary/40 text-muted-foreground"
-                }`}
-              >
-                Bank Card
-              </button>
-            </div>
+            {!network && (
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMode("mobile")}
+                  className={`min-h-12 rounded-lg border-2 font-semibold text-xs transition-all ${
+                    paymentMode === "mobile"
+                      ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                      : "border-border bg-background hover:border-primary/40 text-muted-foreground"
+                  }`}
+                >
+                  Mobile Money
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMode("card")}
+                  className={`min-h-12 rounded-lg border-2 font-semibold text-xs transition-all ${
+                    paymentMode === "card"
+                      ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                      : "border-border bg-background hover:border-primary/40 text-muted-foreground"
+                  }`}
+                >
+                  Bank Card
+                </button>
+              </div>
+            )}
 
             {paymentMode === "mobile" && (
               <div className="space-y-2">
@@ -371,7 +455,7 @@ function DonatePage() {
                   />
                   {network && (
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold uppercase tracking-widest bg-primary text-primary-foreground rounded-full px-3 py-1">
-                      {network === "mtn_momo" ? "MTN" : "Airtel"}
+                      {network === "mtn_momo" ? "MTN MoMo" : "Airtel Money"}
                     </span>
                   )}
                 </div>
@@ -379,9 +463,11 @@ function DonatePage() {
                   {phone && !normalized ? (
                     <span className="text-destructive">Doesn't look like a Uganda number yet.</span>
                   ) : network ? (
-                    <span>We will redirect you to Pesapal Mobile Money payment portal.</span>
+                    <span className="text-primary font-semibold">
+                      {network === "mtn_momo" ? "MTN MoMo" : "Airtel Money"} detected. A USSD PIN prompt will be sent directly to your phone.
+                    </span>
                   ) : (
-                    <span>MTN or Airtel — we auto-detect.</span>
+                    <span>MTN or Airtel — enter your number to auto-detect.</span>
                   )}
                 </div>
               </div>
@@ -525,7 +611,7 @@ function DonatePage() {
                 </div>
 
                 <div className="flex justify-center bg-white p-4 rounded-xl border border-border shadow-inner">
-                  <QRCodeSVG value={qrPayload || reference} size={220} level="M" />
+                  <QRCodeSVG id="qr-pass-svg" value={`https://tambulamengo.work.gd/admin?ref=${reference}`} size={220} level="M" />
                 </div>
 
                 <dl className="divide-y divide-border text-sm pt-2">
@@ -534,15 +620,25 @@ function DonatePage() {
                   <Row label="Category" value="🎽 Kit Purchase" />
                   <Row label="Amount Paid" value={txDetails?.amount ? formatUGX(txDetails.amount) : formatUGX(amount)} highlight />
                   <Row label="Reference (Ref)" value={reference} />
-                  <Row label="Transaction Code" value={txDetails?.provider_reference || txDetails?.confirmation_code || "Pesapal Confirmed"} />
+                  <Row label="Transaction Code" value={txDetails?.provider_reference || txDetails?.confirmation_code || "Yo! Payments Confirmed"} />
                   <Row 
                     label="Date & Time" 
                     value={txDetails?.confirmed_at ? new Date(txDetails.confirmed_at).toLocaleString() : new Date().toLocaleString()} 
                   />
                 </dl>
 
-                <p className="text-xs text-muted-foreground text-center pt-2">
-                  Please screenshot or save this QR code pass to present at the school pavilion during kit collection.
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={downloadPassImage}
+                    className="btn-primary w-full flex items-center justify-center gap-2 py-3 shadow-md text-base"
+                  >
+                    📥 Download Official Pass & QR Code (PNG)
+                  </button>
+                </div>
+
+                <p className="text-xs text-muted-foreground text-center pt-1">
+                  Download or screenshot this pass to present at Mengo Senior School pavilion for kit pickup.
                 </p>
               </div>
             </>

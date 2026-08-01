@@ -25,6 +25,13 @@ function Admin() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<"overview" | "pickup" | "transactions" | "pending" | "kits" | "campaign">("overview");
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("ref")) {
+      setTab("pickup");
+    }
+  }, []);
+
   const isAdminQ = useQuery({
     queryKey: ["is-admin"],
     queryFn: async () => {
