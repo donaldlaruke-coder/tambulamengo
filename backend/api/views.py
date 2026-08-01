@@ -428,11 +428,11 @@ class YoIPNView(APIView):
             else:
                 # SMS for general donations
                 sms = (
-                    f"Dear {donor_name}, we have received your donation of {formatted_amount} "
-                    f"to Mengo Senior School - Tambula Mengo. "
+                    f"Dear {donor_name}, on behalf of Mengo Senior School, teachers & students, "
+                    f"we express our deepest gratitude for your gift of {formatted_amount}! "
                     f"Ref: {tx_ref}. "
-                    f"Helplines: +256783279346 / +256784455449. "
-                    f"May you be abundantly blessed! - Mengo Senior School."
+                    f"Your gift empowers young minds. May you be abundantly blessed! 'Akwana Akira Ayomba'. "
+                    f"Helplines: +256783279346 / +256784455449."
                 )
 
             # 📱 Trigger EgoSMS Gateway (JSON API) if configured

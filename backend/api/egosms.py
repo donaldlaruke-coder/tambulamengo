@@ -84,19 +84,20 @@ def send_kit_purchase_sms(phone, donor_name, kit_name, size, quantity, amount, r
 
 def send_donation_sms(phone, donor_name, amount, reference):
     """
-    Helper to send a formatted SMS notification to a donor upon payment confirmation.
+    Helper to send a formatted thanksgiving SMS notification to a donor upon payment confirmation.
     """
-    name = donor_name or "Supporter"
+    name = donor_name or "Valued Supporter"
     try:
         formatted_amount = f"UGX {int(float(amount)):,}"
     except Exception:
         formatted_amount = f"UGX {amount}"
 
     message = (
-        f"Dear {name}, we have received your donation of {formatted_amount} "
-        f"to Mengo Senior School - Tambula Mengo. "
+        f"Dear {name}, on behalf of Mengo Senior School, teachers & students, "
+        f"we express our deepest gratitude for your generous gift of {formatted_amount}! "
         f"Ref: {reference}. "
-        f"Helplines: +256783279346 / +256784455449. "
-        f"May you be abundantly blessed! Thank you."
+        f"Your gift empowers young minds & preserves our 130-yr legacy. "
+        f"May you be abundantly blessed! 'Akwana Akira Ayomba'. "
+        f"Helplines: +256783279346 / +256784455449."
     )
     return send_sms(phone, message)
