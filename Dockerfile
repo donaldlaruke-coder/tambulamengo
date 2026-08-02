@@ -22,20 +22,22 @@ ENV VITE_SUPABASE_PROJECT_ID=$VITE_SUPABASE_PROJECT_ID
 ENV VITE_SUPABASE_PUBLISHABLE_KEY=$VITE_SUPABASE_PUBLISHABLE_KEY
 ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 
-# Build with node-server preset for standalone node execution
-RUN NITRO_PRESET=node-server npm run build
+# Build the application
+RUN npm run build
 
 # Step 2: Serve the application
 FROM node:22-alpine
 
 WORKDIR /app
 
-# Only copy compiled server output
-COPY --from=builder /app/.output /app/.output
+# Copy compiled dist output, package.json, and node_modules
+COPY --from=builder /app/dist /app/dist
+COPY --from=builder /app/package.json /app/package.json
+COPY --from=builder /app/node_modules /app/node_modules
 
 ENV PORT=3000
 ENV NODE_ENV=production
 
 EXPOSE 3000
 
-CMD ["node", ".output/server/index.mjs"]
+CMD ["node", "dist/server/server.js"]
