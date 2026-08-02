@@ -11,7 +11,7 @@ COPY . .
 
 # Add build arguments for Vite static environment variable injection
 ARG VITE_USE_DJANGO=true
-ARG VITE_BACKEND_URL=https://api.tambulamengo.work.gd
+ARG VITE_BACKEND_URL
 ARG VITE_SUPABASE_PROJECT_ID
 ARG VITE_SUPABASE_PUBLISHABLE_KEY
 ARG VITE_SUPABASE_URL

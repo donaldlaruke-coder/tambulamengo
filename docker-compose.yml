@@ -9,12 +9,14 @@ services:
         - VITE_SUPABASE_PROJECT_ID=${VITE_SUPABASE_PROJECT_ID}
         - VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY}
         - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+    env_file:
+      - .env
     environment:
       - PORT=3000
       - NODE_ENV=production
-      - VITE_USE_DJANGO=true
-      - VITE_BACKEND_URL=https://api.tambulamengo.work.gd
-      - FRONTEND_URL=https://tambulamengo.work.gd
+      - VITE_USE_DJANGO=${VITE_USE_DJANGO:-true}
+      - VITE_BACKEND_URL=${VITE_BACKEND_URL:-https://api.tambulamengo.work.gd}
+      - FRONTEND_URL=${FRONTEND_URL:-https://tambulamengo.work.gd}
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-}
