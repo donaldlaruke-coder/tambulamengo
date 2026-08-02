@@ -67,9 +67,10 @@ def send_sms(to_phone, message):
 def send_kit_purchase_sms(phone, donor_name, kit_name, size, quantity, amount, reference):
     """
     Helper to send a formatted SMS notification to a kit buyer upon payment confirmation.
+    Includes reference code for student/rep pickup, size, amount, and helplines.
     Guaranteed <= 159 characters (1 SMS credit).
     """
-    short_name = (donor_name.split()[0] if donor_name else "Supporter")[:12]
+    short_name = (donor_name.split()[0] if donor_name else "Supporter")[:10]
     size_str = f" ({size})" if size else ""
     qty_str = f"{quantity}x " if quantity and quantity > 1 else ""
 
@@ -80,7 +81,7 @@ def send_kit_purchase_sms(phone, donor_name, kit_name, size, quantity, amount, r
 
     message = (
         f"Mengo SS: Dear {short_name}, payment of {formatted_amount} for {qty_str}Kit{size_str} "
-        f"is confirmed! Ref:{reference}. Pickup:Pavilion (rep/child pickup & swaps ok). "
+        f"is confirmed! Ref:{reference}. Student/rep can collect kit at Pavilion. "
         f"Helps:0783279346/0784455449"
     )
     return send_sms(phone, message)
