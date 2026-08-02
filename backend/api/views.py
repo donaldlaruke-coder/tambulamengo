@@ -311,16 +311,19 @@ def check_and_update_pesapal_transaction(tx):
 
 def trigger_egosms_notification(tx):
     """
-    Triggers EgoSMS notification for a confirmed transaction.
+    Triggers EgoSMS notification for a confirmed transaction (Donations & Kit Purchases).
     """
     try:
         donor = tx.donor
-        target_phone = (donor.phone if donor else None) or tx.donor_display_name
-        donor_name = (donor.name if donor else None) or tx.donor_display_name or "Supporter"
+        target_phone = donor.phone if donor else None
 
-        clean_test = str(target_phone).replace("+", "").replace(" ", "").replace("-", "").strip() if target_phone else ""
-        if not clean_test.isdigit():
-            target_phone = donor.phone if donor else None
+        # Fallback if phone was saved under display name
+        if not target_phone and tx.donor_display_name:
+            clean_disp = str(tx.donor_display_name).replace("+", "").replace(" ", "").replace("-", "").strip()
+            if clean_disp.isdigit():
+                target_phone = clean_disp
+
+        donor_name = (donor.name if donor else None) or tx.donor_display_name or "Supporter"
 
         if target_phone:
             if tx.type == 'kit_purchase':
@@ -328,9 +331,13 @@ def trigger_egosms_notification(tx):
                 kit_name = first_item.kit_product.name if (first_item and first_item.kit_product) else "Tambula Mengo Run Kit"
                 size = first_item.size if first_item else ""
                 quantity = first_item.quantity if first_item else 1
+                logger.info(f"[EgoSMS Trigger] Sending Kit Purchase SMS to {target_phone} for {tx.internal_reference}")
                 egosms.send_kit_purchase_sms(target_phone, donor_name, kit_name, size, quantity, tx.amount, tx.internal_reference)
             else:
+                logger.info(f"[EgoSMS Trigger] Sending Donation Thanksgiving SMS to {target_phone} for {tx.internal_reference}")
                 egosms.send_donation_sms(target_phone, donor_name, tx.amount, tx.internal_reference)
+        else:
+            logger.warning(f"[EgoSMS Trigger] No valid phone number found for transaction {tx.internal_reference}")
     except Exception as sms_err:
         logger.error(f"[EgoSMS] Error triggering SMS for {tx.internal_reference}: {sms_err}")
 
