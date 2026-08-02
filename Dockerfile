@@ -30,14 +30,12 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-# Copy compiled dist output, package.json, and node_modules
-COPY --from=builder /app/dist /app/dist
-COPY --from=builder /app/package.json /app/package.json
-COPY --from=builder /app/node_modules /app/node_modules
+# Copy built application from builder stage
+COPY --from=builder /app /app
 
 ENV PORT=3000
 ENV NODE_ENV=production
 
 EXPOSE 3000
 
-CMD ["node", "dist/server/server.js"]
+CMD ["node", "scripts/run-server.js"]
