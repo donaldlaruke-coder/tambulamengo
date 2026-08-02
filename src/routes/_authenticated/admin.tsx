@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { formatUGX, timeAgo } from "@/lib/format";
 import { getBackendUrl } from "@/lib/backend-url";
 import { PickupStation } from "@/components/tambula/PickupStation";
+import { AdminAnalyticsCharts } from "@/components/tambula/AdminAnalyticsCharts";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
@@ -205,9 +206,12 @@ function Admin() {
       </div>
 
       {tab === "overview" && (
-        <div className="card-heritage p-6">
-          <h2 className="font-serif font-bold text-primary text-lg mb-3">Recent activity</h2>
-          <TxTable rows={txs.data ?? []} defaultPageSize={20} />
+        <div className="space-y-6">
+          <AdminAnalyticsCharts transactions={txs.data ?? []} />
+          <div className="card-heritage p-6">
+            <h2 className="font-serif font-bold text-primary text-lg mb-3">Recent activity</h2>
+            <TxTable rows={txs.data ?? []} defaultPageSize={20} />
+          </div>
         </div>
       )}
       {tab === "pickup" && <PickupStation />}

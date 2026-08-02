@@ -41,10 +41,66 @@ function AnimatedNumber({ to, duration = 1400 }: { to: number; duration?: number
 /* ─── Kit tally graphic ─── */
 function KitBars({ kitCount, donationCount }: { kitCount: number; donationCount: number }) {
   const total = kitCount + donationCount;
-  const kitPct = total > 0 ? Math.round((kitCount / total) * 100) : 0;
+  const kitPct = total > 0 ? Math.round((kitCount / total) * 100) : 50;
   const donPct = 100 - kitPct;
+
+  // Donut SVG calculations
+  const radius = 36;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (kitPct / 100) * circumference;
+
   return (
-    <div className="lp-kit-bars">
+    <div className="lp-kit-bars space-y-4">
+      <div className="flex items-center gap-4 bg-white/5 p-3 rounded-xl border border-white/10">
+        {/* SVG Donut Graphic */}
+        <div className="relative w-20 h-20 flex-shrink-0 flex items-center justify-center">
+          <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 90 90">
+            <circle
+              cx="45"
+              cy="45"
+              r={radius}
+              stroke="rgba(255,255,255,0.15)"
+              strokeWidth="10"
+              fill="transparent"
+            />
+            <circle
+              cx="45"
+              cy="45"
+              r={radius}
+              stroke="#C9A24B"
+              strokeWidth="10"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
+              strokeLinecap="round"
+              fill="transparent"
+              style={{ transition: "stroke-dashoffset 1s ease-in-out" }}
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+            <span className="text-sm font-serif font-bold text-gold">{kitPct}%</span>
+            <span className="text-[9px] uppercase tracking-wider text-white/60">Kits</span>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="flex-1 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-gold inline-block" />
+              <span className="text-white/80">Kits Bought</span>
+            </div>
+            <span className="font-bold text-gold font-serif">{kitCount.toLocaleString()}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-white/30 inline-block" />
+              <span className="text-white/80">Direct Gifts</span>
+            </div>
+            <span className="font-bold text-white font-serif">{donationCount.toLocaleString()}</span>
+          </div>
+        </div>
+      </div>
+
       <div className="lp-kit-bars__track">
         <div
           className="lp-kit-bars__segment lp-kit-bars__segment--kit"
@@ -56,18 +112,6 @@ function KitBars({ kitCount, donationCount }: { kitCount: number; donationCount:
           style={{ width: `${donPct}%` }}
           title={`Donations: ${donationCount}`}
         />
-      </div>
-      <div className="lp-kit-bars__legend">
-        <div className="lp-kit-bars__legend-item">
-          <span className="lp-kit-bars__dot lp-kit-bars__dot--kit" />
-          <span className="lp-kit-bars__lbl">Run kits bought</span>
-          <span className="lp-kit-bars__val">{kitCount.toLocaleString()}</span>
-        </div>
-        <div className="lp-kit-bars__legend-item">
-          <span className="lp-kit-bars__dot lp-kit-bars__dot--don" />
-          <span className="lp-kit-bars__lbl">Direct donations</span>
-          <span className="lp-kit-bars__val">{donationCount.toLocaleString()}</span>
-        </div>
       </div>
     </div>
   );
