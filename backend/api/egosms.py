@@ -4,8 +4,8 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-# EgoSMS Uganda API Endpoint
-EGOSMS_API_URL = getattr(settings, 'EGOSMS_API_URL', 'https://api.egosms.co/v2/json/')
+# EgoSMS Uganda API Endpoint (Use http://egosms.co/api/v1/json/ to avoid HTTPS connect timeout on EgoSMS servers)
+EGOSMS_API_URL = getattr(settings, 'EGOSMS_API_URL', 'http://egosms.co/api/v1/json/')
 
 def get_egosms_credentials():
     username = getattr(settings, 'EGOSMS_USERNAME', '')
@@ -33,8 +33,8 @@ def send_sms(to_phone, message):
     if len(message) > 159:
         message = message[:156] + "..."
 
-    # Official EgoSMS JSON Payload Structure
-    payload = {
+    # EgoSMS Multi-format Payloads
+    v2_payload = {
         "method": "send_sms",
         "userdata": {
             "username": username,
@@ -48,40 +48,50 @@ def send_sms(to_phone, message):
         ]
     }
     if sender_id and sender_id.strip():
-        payload["userdata"]["senderid"] = sender_id.strip()
+        v2_payload["userdata"]["senderid"] = sender_id.strip()
+
+    flat_payload = {
+        "method": "send_sms",
+        "username": username,
+        "password": password,
+        "number": clean_phone,
+        "to": clean_phone,
+        "message": message
+    }
+    if sender_id and sender_id.strip():
+        flat_payload["sender"] = sender_id.strip()
 
     headers = {
         "Content-Type": "application/json",
         "Accept": "application/json"
     }
 
-    logger.info(f"[EgoSMS] Sending SMS ({len(message)} chars) to {clean_phone} via {EGOSMS_API_URL}")
-    try:
-        response = requests.post(EGOSMS_API_URL, json=payload, headers=headers, timeout=15)
-        logger.info(f"[EgoSMS] Response ({response.status_code}): {response.text}")
+    endpoints = [
+        ("http://egosms.co/api/v1/json/", flat_payload),
+        ("http://egosms.co/api/v1/json/", v2_payload),
+        ("https://www.egosms.co/api/v1/json/", flat_payload)
+    ]
 
-        # If v2 fails or returns error in response, try flat API POST fallback
-        if response.status_code != 200 or "error" in response.text.lower() or "invalid" in response.text.lower():
-            flat_payload = {
-                "method": "send_sms",
-                "username": username,
-                "password": password,
-                "number": clean_phone,
-                "to": clean_phone,
-                "message": message
-            }
-            if sender_id and sender_id.strip():
-                flat_payload["sender"] = sender_id.strip()
-            
-            fallback_res = requests.post("https://www.egosms.co/api/v1/json/", json=flat_payload, headers=headers, timeout=15)
-            logger.info(f"[EgoSMS Fallback] Response ({fallback_res.status_code}): {fallback_res.text}")
-            return {"success": True, "raw_response": fallback_res.text}
+    for target_url, payload_data in endpoints:
+        try:
+            logger.info(f"[EgoSMS] Sending SMS ({len(message)} chars) to {clean_phone} via {target_url}")
+            response = requests.post(target_url, json=payload_data, headers=headers, timeout=6)
+            logger.info(f"[EgoSMS] Response ({response.status_code}): {response.text}")
 
-        return {"success": True, "raw_response": response.text}
+            if response.status_code == 200 and "status" in response.text.lower() and "failed" not in response.text.lower():
+                return {"success": True, "raw_response": response.text}
 
-    except Exception as e:
-        logger.error(f"[EgoSMS] Failed to send SMS to {clean_phone}: {e}")
-        return {"success": False, "error": str(e)}
+            # Try form-urlencoded if JSON returned Method Not Set
+            form_res = requests.post(target_url, data=flat_payload, timeout=6)
+            logger.info(f"[EgoSMS Form] Response ({form_res.status_code}): {form_res.text}")
+            if form_res.status_code == 200 and "failed" not in form_res.text.lower():
+                return {"success": True, "raw_response": form_res.text}
+
+        except Exception as conn_err:
+            logger.warning(f"[EgoSMS] Endpoint {target_url} failed: {conn_err}")
+            continue
+
+    return {"success": False, "error": "All EgoSMS endpoints failed to accept request"}
 
 def send_kit_purchase_sms(phone, donor_name, kit_name, size, quantity, amount, reference):
     """
