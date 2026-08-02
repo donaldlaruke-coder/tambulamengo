@@ -611,7 +611,9 @@ function CampaignAdmin() {
   useEffect(() => {
     if (data) setForm({
       campaign_name: data.campaign_name ?? "", tagline: data.tagline ?? "", story: data.story ?? "",
-      goal_amount: String(data.goal_amount ?? 0), event_date: data.event_date ?? "",
+      goal_amount: String(data.goal_amount ?? 0),
+      offline_amount: String(data.offline_amount ?? 0),
+      event_date: data.event_date ?? "",
       event_details: data.event_details ?? "",
       bank_name: data.bank_name ?? "", bank_account_name: data.bank_account_name ?? "", bank_account_number: data.bank_account_number ?? "",
     });
@@ -632,6 +634,7 @@ function CampaignAdmin() {
       toast.success("Campaign settings saved successfully!");
       qc.invalidateQueries({ queryKey: ["admin-campaign"] });
       qc.invalidateQueries({ queryKey: ["campaign"] });
+      qc.invalidateQueries({ queryKey: ["campaign-stats"] });
     },
     onError: (e) => toast.error((e as Error).message),
   });
@@ -647,13 +650,34 @@ function CampaignAdmin() {
         <Field label="Goal (UGX)"><input type="number" value={form.goal_amount ?? ""} onChange={upd("goal_amount")} className="w-full rounded border border-input px-3 py-2" /></Field>
         <Field label="Event date"><input type="date" value={form.event_date ?? ""} onChange={upd("event_date")} className="w-full rounded border border-input px-3 py-2" /></Field>
       </div>
+
+      {/* Pre-collected / offline amount */}
+      <div className="rounded-xl border-2 border-amber-400/40 bg-amber-400/8 p-4 space-y-2">
+        <Field label="Pre-collected amount (UGX) — shown on thermometer">
+          <input
+            type="number"
+            min={0}
+            value={form.offline_amount ?? "0"}
+            onChange={upd("offline_amount")}
+            className="w-full rounded border border-input px-3 py-2 text-lg font-mono"
+            placeholder="0"
+          />
+        </Field>
+        <p className="text-xs text-muted-foreground">
+          Enter any amount collected offline (cash, bank deposits, previous drives, etc.).
+          This is <strong>added to the live online total</strong> on the fundraising thermometer.
+        </p>
+      </div>
+
       <Field label="Event details"><textarea rows={2} value={form.event_details ?? ""} onChange={upd("event_details")} className="w-full rounded border border-input px-3 py-2" /></Field>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <Field label="Bank name"><input value={form.bank_name ?? ""} onChange={upd("bank_name")} className="w-full rounded border border-input px-3 py-2" /></Field>
         <Field label="Account name"><input value={form.bank_account_name ?? ""} onChange={upd("bank_account_name")} className="w-full rounded border border-input px-3 py-2" /></Field>
         <Field label="Account number"><input value={form.bank_account_number ?? ""} onChange={upd("bank_account_number")} className="w-full rounded border border-input px-3 py-2" /></Field>
       </div>
-      <button onClick={() => save.mutate()} className="btn-primary">Save changes</button>
+      <button onClick={() => save.mutate()} disabled={save.isPending} className="btn-primary">
+        {save.isPending ? "Saving…" : "Save changes"}
+      </button>
     </div>
   );
 }

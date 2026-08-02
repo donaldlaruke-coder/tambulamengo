@@ -5,8 +5,8 @@ class CampaignSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = CampaignSettings
         fields = [
-            'id', 'campaign_name', 'tagline', 'story', 
-            'goal_amount', 'event_date', 'event_details', 
+            'id', 'campaign_name', 'tagline', 'story',
+            'goal_amount', 'offline_amount', 'event_date', 'event_details',
             'updated_at'
         ]
 

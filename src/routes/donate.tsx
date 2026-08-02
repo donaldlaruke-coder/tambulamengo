@@ -35,7 +35,7 @@ export const Route = createFileRoute("/donate")({
 });
 
 const QUICK = [10000, 25000, 50000, 100000, 250000];
-type Method = "mtn_momo" | "airtel_money" | "bank";
+type Method = "mtn_momo" | "airtel_money" | "bank" | "card";
 type Step = "details" | "waiting" | "success" | "bank_pending";
 
 function DonatePage() {
@@ -275,7 +275,7 @@ function DonatePage() {
           toast.success(resData.message || "A USSD prompt has been sent to your phone.");
         } else if (resData.bank_name) {
           setBankDetails(resData);
-          setStep("pending_bank");
+          setStep("bank_pending");
         } else {
           throw new Error(resData.detail || "Unable to initiate payment.");
         }
@@ -298,7 +298,7 @@ function DonatePage() {
         type: isKitFlow ? "kit_purchase" : "donation",
         amount,
         currency: "UGX",
-        payment_method: method,
+        payment_method: (method === "card" ? "bank" : method) as "mtn_momo" | "airtel_money" | "bank",
         status: "pending",
         internal_reference: ref,
         message: message || null,
@@ -326,7 +326,7 @@ function DonatePage() {
         }
       }
 
-      if (method === "bank") {
+      if (!isMobileMoney) {
         try {
           const details = await getBankTransferDetails({ data: { internal_reference: ref } });
           setBankDetails({

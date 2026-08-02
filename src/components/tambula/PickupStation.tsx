@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Html5Qrcode } from "html5-qrcode";
-import { supabase } from "@/integrations/supabase/client";
-import { formatUGX, normalizeUgPhone, timeAgo } from "@/lib/format";
+import { getBackendUrl } from "@/lib/backend-url";
+import { formatUGX, timeAgo } from "@/lib/format";
 
 type KitItem = {
   id: string;
@@ -31,8 +30,24 @@ const SELECT =
 export function PickupStation() {
   const qc = useQueryClient();
   const [query, setQuery] = useState("");
+  const [submitted, setSubmitted] = useState("");
+  const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<any>(null);
   const [loadingScan, setLoadingScan] = useState(false);
+
+  const recent = useQuery({
+    queryKey: ["pickup-recent"],
+    queryFn: async () => {
+      const res = await fetch(`${getBackendUrl()}/api/admin-api/transactions/?type=kit_purchase&status=confirmed`, {
+        credentials: "include",
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      // Return confirmed kit orders that have been collected
+      return (data as any[]).filter((t: any) => t.kit_collected).slice(0, 20);
+    },
+    refetchInterval: 30_000,
+  });
 
   async function handleScanSubmit(refToSearch: string) {
     if (!refToSearch.trim()) return;
@@ -174,13 +189,15 @@ export function PickupStation() {
               <li key={r.id} className="py-2 flex items-center justify-between gap-3">
                 <div>
                   <div className="font-semibold">
-                    {r.transaction?.donor?.name || r.transaction?.donor?.phone || "Anonymous"}
+                    {r.is_anonymous ? "Anonymous" : r.donor_name || r.donor_display_name || r.donor_phone || "—"}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {r.quantity}× {r.kit?.name}{r.size ? ` (${r.size})` : ""} · {r.transaction?.internal_reference}
+                    {r.internal_reference} · {formatUGX(r.amount)}
                   </div>
                 </div>
-                <div className="text-xs text-muted-foreground whitespace-nowrap">{timeAgo(r.picked_up_at)}</div>
+                <div className="text-xs text-muted-foreground whitespace-nowrap">
+                  {r.kit_collected_at ? timeAgo(r.kit_collected_at) : "—"}
+                </div>
               </li>
             ))}
           </ul>
@@ -254,32 +271,40 @@ function StatusPill({ paid, allPicked }: { paid: boolean; allPicked: boolean }) 
 
 function QrScanner({ onScan }: { onScan: (text: string) => void }) {
   const elId = useRef(`qr-${Math.random().toString(36).slice(2)}`).current;
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerRef = useRef<InstanceType<typeof import("html5-qrcode")["Html5Qrcode"]> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    const scanner = new Html5Qrcode(elId, { verbose: false });
-    scannerRef.current = scanner;
-    scanner
-      .start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 240, height: 240 } },
-        (decoded) => {
-          if (cancelled) return;
-          onScan(decoded);
-        },
-        () => {},
-      )
-      .catch((e) => setError(e?.message ?? "Camera unavailable"));
+    let scanner: InstanceType<typeof import("html5-qrcode")["Html5Qrcode"]> | null = null;
+
+    import("html5-qrcode").then(({ Html5Qrcode }) => {
+      if (cancelled) return;
+      scanner = new Html5Qrcode(elId, { verbose: false } as any);
+      scannerRef.current = scanner;
+      scanner
+        .start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 240, height: 240 } },
+          (decoded) => {
+            if (cancelled) return;
+            onScan(decoded);
+          },
+          () => {},
+        )
+        .catch((e: any) => setError(e?.message ?? "Camera unavailable"));
+    });
+
     return () => {
       cancelled = true;
-      scanner
-        .stop()
-        .catch(() => {})
-        .finally(() => {
-          try { scanner.clear(); } catch { /* noop */ }
-        });
+      if (scanner) {
+        scanner
+          .stop()
+          .catch(() => {})
+          .finally(() => {
+            try { scanner!.clear(); } catch { /* noop */ }
+          });
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

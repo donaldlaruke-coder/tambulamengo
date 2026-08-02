@@ -54,7 +54,7 @@ function Index() {
             </div>
           </div>
           <div className="card-heritage p-6 md:p-8 !bg-white/95 !border-white/40 text-foreground backdrop-blur-sm shadow-2xl">
-            <ProgressBar raised={raised} goal={goal} />
+            <ProgressBar raised={raised} goal={goal} donations={donations.data ?? []} />
             <div className="grid grid-cols-3 gap-3 mt-6 text-center">
               <Stat label="Donors" value={stats.data?.donor_count?.toLocaleString() ?? "—"} />
               <Stat label="Gifts" value={stats.data?.donation_count?.toLocaleString() ?? "—"} />

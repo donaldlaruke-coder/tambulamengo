@@ -7,6 +7,7 @@ class CampaignSettings(models.Model):
     tagline = models.CharField(max_length=500, blank=True, null=True)
     story = models.TextField(blank=True, null=True)
     goal_amount = models.BigIntegerField()
+    offline_amount = models.BigIntegerField(default=0, help_text='Pre-collected / offline donations to add to the fundraising total (UGX)')
     event_date = models.DateField()
     event_details = models.TextField(blank=True, null=True)
     bank_name = models.CharField(max_length=255, blank=True, null=True)

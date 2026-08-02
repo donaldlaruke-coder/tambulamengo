@@ -9,6 +9,7 @@ export type CampaignSettings = {
   tagline: string | null;
   story: string | null;
   goal_amount: number;
+  offline_amount: number;
   event_date: string;
   event_details: string | null;
 };

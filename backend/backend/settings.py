@@ -130,6 +130,8 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Security & Proxy Settings
 USE_X_FORWARDED_HOST = True
@@ -139,9 +141,17 @@ CSRF_TRUSTED_ORIGINS = [
     'https://tambulamengo.work.gd',
     'https://api.tambulamengo.work.gd',
     'https://*.work.gd',
+    'http://*.work.gd',
+    'https://mycoder.work.gd',
+    'http://mycoder.work.gd',
     'http://localhost:8080',
     'http://localhost:3000',
     'http://localhost:8000',
+    'http://localhost:5173',
+    'http://127.0.0.1:8080',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:8000',
+    'http://127.0.0.1:5173',
 ]
 
 # CORS Configuration
@@ -149,10 +159,16 @@ CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 # Session & CSRF cookie configuration for cross-origin admin auth
-SESSION_COOKIE_SAMESITE = 'None'
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SAMESITE = 'None'
-CSRF_COOKIE_SECURE = True
+if not DEBUG:
+    SESSION_COOKIE_SAMESITE = 'None'
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SAMESITE = 'None'
+    CSRF_COOKIE_SECURE = True
+else:
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SAMESITE = 'Lax'
+    CSRF_COOKIE_SECURE = False
 
 # REST Framework Configuration
 REST_FRAMEWORK = {

@@ -35,7 +35,7 @@ function Page() {
       </header>
 
       <section className="card-heritage p-5 md:p-6 bg-primary text-primary-foreground">
-        <ProgressBar raised={raised} goal={goal} />
+        <ProgressBar raised={raised} goal={goal} donations={feed.data ?? []} />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
           <Stat label="Total raised" value={formatUGX(raised)} />
           <Stat label="Donors" value={(stats.data?.donor_count ?? 0).toLocaleString()} />

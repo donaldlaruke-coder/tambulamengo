@@ -62,13 +62,17 @@ class CampaignStatsView(APIView):
     def get(self, request):
         try:
             txs = Transaction.objects.filter(status='confirmed')
-            total_raised = sum((t.amount or 0) for t in txs)
+            online_raised = sum((t.amount or 0) for t in txs)
+            campaign = CampaignSettings.objects.filter(id=1).first()
+            offline_amount = (campaign.offline_amount or 0) if campaign else 0
+            total_raised = online_raised + offline_amount
             donor_count = txs.exclude(donor_id=None).values('donor_id').distinct().count()
             donation_count = txs.count()
-            average_donation = int(total_raised / donation_count) if donation_count > 0 else 0
+            average_donation = int(online_raised / donation_count) if donation_count > 0 else 0
 
             return Response({
                 "total_raised": total_raised,
+                "offline_amount": offline_amount,
                 "donor_count": donor_count,
                 "donation_count": donation_count,
                 "average_donation": average_donation
@@ -77,6 +81,7 @@ class CampaignStatsView(APIView):
             logger.error(f"Error in CampaignStatsView: {e}")
             return Response({
                 "total_raised": 0,
+                "offline_amount": 0,
                 "donor_count": 0,
                 "donation_count": 0,
                 "average_donation": 0
@@ -695,15 +700,19 @@ class AdminStatsView(APIView):
 
         try:
             confirmed = Transaction.objects.filter(status='confirmed')
-            total_raised = sum((t.amount or 0) for t in confirmed)
+            online_raised = sum((t.amount or 0) for t in confirmed)
+            campaign = CampaignSettings.objects.filter(id=1).first()
+            offline_amount = (campaign.offline_amount or 0) if campaign else 0
+            total_raised = online_raised + offline_amount
             donor_count = confirmed.exclude(donor_id=None).values('donor_id').distinct().count()
             donation_count = confirmed.count()
-            average_donation = int(total_raised / donation_count) if donation_count > 0 else 0
+            average_donation = int(online_raised / donation_count) if donation_count > 0 else 0
             kit_orders_count = confirmed.filter(type='kit_purchase').count()
             pending_count = Transaction.objects.filter(status='pending').count()
 
             return Response({
                 'total_raised': total_raised,
+                'offline_amount': offline_amount,
                 'donor_count': donor_count,
                 'donation_count': donation_count,
                 'average_donation': average_donation,
@@ -713,7 +722,7 @@ class AdminStatsView(APIView):
         except Exception as e:
             logger.error(f"Error in AdminStatsView: {e}")
             return Response({
-                'total_raised': 0, 'donor_count': 0, 'donation_count': 0,
+                'total_raised': 0, 'offline_amount': 0, 'donor_count': 0, 'donation_count': 0,
                 'average_donation': 0, 'kit_orders_count': 0, 'pending_count': 0
             })
 
@@ -868,6 +877,7 @@ class AdminCampaignView(APIView):
         return Response({
             'campaign_name': campaign.campaign_name, 'tagline': campaign.tagline,
             'story': campaign.story, 'goal_amount': campaign.goal_amount,
+            'offline_amount': campaign.offline_amount or 0,
             'event_date': str(campaign.event_date), 'event_details': campaign.event_details,
             'bank_name': campaign.bank_name, 'bank_account_name': campaign.bank_account_name,
             'bank_account_number': campaign.bank_account_number,
@@ -889,6 +899,13 @@ class AdminCampaignView(APIView):
             try:
                 val = d['goal_amount']
                 campaign.goal_amount = int(val) if val != '' and val is not None else 0
+            except (ValueError, TypeError):
+                pass
+
+        if 'offline_amount' in d:
+            try:
+                val = d['offline_amount']
+                campaign.offline_amount = int(val) if val != '' and val is not None else 0
             except (ValueError, TypeError):
                 pass
 
