@@ -973,6 +973,11 @@ class AdminScanKitView(APIView):
                 "unit_price": item.unit_price
             })
 
+        collector_name = str(request.data.get('collector_name', '')).strip()
+        collector_info = f"Staff:{request.user.username}"
+        if collector_name:
+            collector_info += f" (Collector: {collector_name})"
+
         # CHECK IF ALREADY PICKED UP / COLLECTED
         if tx.kit_collected:
             picked_time_str = tx.kit_collected_at.strftime("%Y-%m-%d %H:%M:%S") if tx.kit_collected_at else "Earlier"
@@ -993,13 +998,13 @@ class AdminScanKitView(APIView):
         now = timezone.now()
         tx.kit_collected = True
         tx.kit_collected_at = now
-        tx.kit_collected_by = request.user.username
+        tx.kit_collected_by = collector_info
         tx.save()
 
         for item in tx.order_items.all():
             item.fulfillment_status = 'picked_up'
             item.picked_up_at = now
-            item.picked_up_by = request.user.username
+            item.picked_up_by = collector_info
             item.save()
 
         return Response({
@@ -1010,7 +1015,7 @@ class AdminScanKitView(APIView):
             'donor_name': donor_name,
             'donor_phone': donor_phone,
             'picked_at': str(now),
-            'picked_by': request.user.username,
+            'picked_by': collector_info,
             'items': items,
             'amount': tx.amount
         }, status=status.HTTP_200_OK)

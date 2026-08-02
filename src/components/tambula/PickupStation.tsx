@@ -30,6 +30,7 @@ const SELECT =
 export function PickupStation() {
   const qc = useQueryClient();
   const [query, setQuery] = useState("");
+  const [collectorName, setCollectorName] = useState("");
   const [submitted, setSubmitted] = useState("");
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<any>(null);
@@ -71,7 +72,7 @@ export function PickupStation() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ reference: cleanRef }),
+        body: JSON.stringify({ reference: cleanRef, collector_name: collectorName }),
       });
 
       const resText = await res.text();
@@ -123,6 +124,19 @@ export function PickupStation() {
           />
           <button onClick={() => runSearch(query)} className="btn-primary !min-h-0 !py-3 !px-4">Search</button>
         </div>
+
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">
+            Student / Representative Collecting Kit (Optional)
+          </label>
+          <input
+            value={collectorName}
+            onChange={(e) => setCollectorName(e.target.value)}
+            placeholder="e.g. Samuel Katumba (Student / Child)"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+          />
+        </div>
+
         <button
           type="button"
           onClick={() => setScanning((s) => !s)}
@@ -164,6 +178,7 @@ export function PickupStation() {
                 <div><strong>Payer:</strong> {scanResult.donor_name} ({scanResult.donor_phone})</div>
                 <div><strong>Reference:</strong> {scanResult.reference}</div>
                 <div><strong>Items:</strong> {scanResult.items?.map((i: any) => `${i.quantity}x ${i.name} (${i.size})`).join(", ")}</div>
+                <div className="text-red-600 dark:text-red-400"><strong>Collected By:</strong> {scanResult.picked_by}</div>
               </div>
             </div>
           ) : (
@@ -178,7 +193,7 @@ export function PickupStation() {
                 <div><strong>Payer:</strong> {scanResult.donor_name} ({scanResult.donor_phone})</div>
                 <div><strong>Reference:</strong> {scanResult.reference}</div>
                 <div><strong>Items Released:</strong> {scanResult.items?.map((i: any) => `${i.quantity}x ${i.name} (${i.size})`).join(", ")}</div>
-                <div className="text-muted-foreground pt-1">Verified by {scanResult.picked_by} at {scanResult.picked_at}</div>
+                <div className="text-emerald-700 dark:text-emerald-300 font-semibold pt-1">Logged: {scanResult.picked_by} at {scanResult.picked_at}</div>
               </div>
             </div>
           )}
@@ -195,11 +210,21 @@ export function PickupStation() {
               {pagedPickups.map((r: any) => (
                 <li key={r.id} className="py-2 flex items-center justify-between gap-3">
                   <div>
-                    <div className="font-semibold">
-                      {r.is_anonymous ? "Anonymous" : r.donor_name || r.donor_display_name || r.donor_phone || "—"}
+                    <div className="font-semibold flex items-center gap-1.5">
+                      <span>{r.donor_name || r.donor_display_name || r.donor_phone || "Supporter"}</span>
+                      {r.is_anonymous && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-normal">
+                          Anonymous Donor
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {r.internal_reference} · {formatUGX(r.amount)}
+                      {r.kit_collected_by && (
+                        <span className="block text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">
+                          Collector: {r.kit_collected_by}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="text-xs text-muted-foreground whitespace-nowrap">
