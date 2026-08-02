@@ -83,124 +83,136 @@ class LiveDonationsListView(generics.ListAPIView):
 class InitiatePaymentView(APIView):
     permission_classes = [AllowAny]
 
-    @db_transaction.atomic
     def post(self, request):
-        data = request.data
-        amount = data.get("amount")
-        name = data.get("name")
-        phone = data.get("phone")
-        email = data.get("email")
-        payment_mode = data.get("payment_mode") # "mobile" | "card" | "bank"
-        kit_id = data.get("kit_id")
-        size = data.get("size")
-        qty = data.get("qty", 1)
-        message = data.get("message")
+        try:
+            data = request.data
+            amount = data.get("amount")
+            name = data.get("name")
+            phone = data.get("phone")
+            email = data.get("email")
+            payment_mode = data.get("payment_mode") # "mobile" | "card" | "bank"
+            kit_id = data.get("kit_id")
+            size = data.get("size")
+            qty = data.get("qty", 1)
+            message = data.get("message")
 
-        if not amount or int(amount) < 500:
-            return Response({"detail": "Minimum payment is UGX 500"}, status=status.HTTP_400_BAD_REQUEST)
+            if not amount or int(amount) < 500:
+                return Response({"detail": "Minimum payment is UGX 500"}, status=status.HTTP_400_BAD_REQUEST)
 
-        is_kit = bool(kit_id)
-        ref_prefix = "KIT" if is_kit else "TM"
-        ref = generate_random_reference(ref_prefix)
+            is_kit = bool(kit_id)
+            ref_prefix = "KIT" if is_kit else "TM"
+            ref = generate_random_reference(ref_prefix)
 
-        # Enforce name for kit purchases
-        if is_kit and (not name or not name.strip()):
-            return Response({"detail": "Name is compulsory for kit purchases"}, status=status.HTTP_400_BAD_REQUEST)
+            # Enforce name for kit purchases
+            if is_kit and (not name or not str(name).strip()):
+                return Response({"detail": "Name is compulsory for kit purchases"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Create or update Donor
-        donor = None
-        if name or phone or email:
-            donor, _ = Donor.objects.get_or_create(
-                phone=phone,
-                defaults={"name": name, "email": email}
-            )
-            # update name/email if empty
-            if name and not donor.name:
-                donor.name = name
-            if email and not donor.email:
-                donor.email = email
-            donor.save()
+            # Safe Donor lookup/creation
+            donor = None
+            clean_phone = str(phone).strip() if phone else None
+            clean_name = str(name).strip() if name else None
+            clean_email = str(email).strip() if email else None
 
-        # Create Transaction
-        tx_type = 'kit_purchase' if is_kit else 'donation'
-        db_payment_method = 'bank' if payment_mode == 'bank' else ('card' if payment_mode == 'card' else 'mtn_momo') # placeholder mapping
-        
-        transaction_obj = Transaction.objects.create(
-            donor=donor,
-            type=tx_type,
-            amount=int(amount),
-            currency='UGX',
-            payment_method=db_payment_method,
-            status='pending',
-            internal_reference=ref,
-            message=message,
-            is_anonymous=(not bool(name)) if not is_kit else False,
-            donor_display_name=name if name else None
-        )
+            if clean_phone:
+                donor = Donor.objects.filter(phone=clean_phone).first()
+                if not donor:
+                    donor = Donor.objects.create(phone=clean_phone, name=clean_name, email=clean_email)
+                else:
+                    if clean_name and not donor.name:
+                        donor.name = clean_name
+                    if clean_email and not donor.email:
+                        donor.email = clean_email
+                    donor.save()
+            elif clean_name or clean_email:
+                donor = Donor.objects.create(name=clean_name, email=clean_email)
 
-        # If kit, create KitOrderItem
-        if is_kit:
-            try:
-                product = KitProduct.objects.get(id=kit_id)
-            except KitProduct.DoesNotExist:
-                return Response({"detail": "Kit product not found"}, status=status.HTTP_404_NOT_FOUND)
-
-            unit_price = int(amount) // int(qty) if qty else product.price
-            KitOrderItem.objects.create(
-                transaction=transaction_obj,
-                kit_product=product,
-                size=size,
-                quantity=int(qty),
-                unit_price=unit_price
+            # Create Transaction
+            tx_type = 'kit_purchase' if is_kit else 'donation'
+            db_payment_method = 'bank' if payment_mode == 'bank' else ('card' if payment_mode == 'card' else 'mtn_momo')
+            
+            transaction_obj = Transaction.objects.create(
+                donor=donor,
+                type=tx_type,
+                amount=int(amount),
+                currency='UGX',
+                payment_method=db_payment_method,
+                status='pending',
+                internal_reference=ref,
+                message=message,
+                is_anonymous=(not bool(clean_name)) if not is_kit else False,
+                donor_display_name=clean_name if clean_name else None
             )
 
-        if payment_mode == 'bank':
-            # Read bank details from settings
-            campaign = CampaignSettings.objects.filter(id=1).first()
-            return Response({
-                "reference": ref,
-                "bank_name": campaign.bank_name if campaign else "Stanbic Bank Uganda",
-                "bank_account_name": campaign.bank_account_name if campaign else "Mengo Senior School — Tambula Mengo",
-                "bank_account_number": campaign.bank_account_number if campaign else "9030099999999"
-            })
-        else:
-            # Yo! Payments Integration Flow (Mobile Money USSD Push)
-            try:
-                backend_ipn = request.build_absolute_uri('/api/payments/yo-ipn/')
-                if backend_ipn.startswith("http://") and "tambulamengo.work.gd" in backend_ipn:
-                    backend_ipn = backend_ipn.replace("http://", "https://")
+            # If kit, create KitOrderItem
+            if is_kit:
+                product = None
+                try:
+                    product = KitProduct.objects.filter(id=kit_id).first()
+                except Exception:
+                    product = None
 
-                narrative = f"Tambula Mengo Run Kit ({size})" if is_kit else "Tambula Mengo Donation"
-                target_phone = phone or (donor.phone if donor else "0770000000")
+                if not product:
+                    return Response({"detail": "Kit product not found"}, status=status.HTTP_404_NOT_FOUND)
 
-                # Add 11.67% surcharge to amount sent to Yo! Payments API (hidden from frontend UI)
-                # YOU CAN ADJUST THIS PERCENTAGE MULTIPLIER BELOW (e.g., 11.67 = 11.67% fee)
-                SURCHARGE_PERCENTAGE = 11.67
-                surcharged_amount = int(round(float(amount) * (1 + SURCHARGE_PERCENTAGE / 100)))
-
-                yo_res = yo_payments.deposit_funds(
-                    reference=ref,
-                    amount=surcharged_amount,
-                    phone=target_phone,
-                    narrative=narrative,
-                    ipn_url=backend_ipn
+                unit_price = int(amount) // int(qty) if (qty and int(qty) > 0) else product.price
+                KitOrderItem.objects.create(
+                    transaction=transaction_obj,
+                    kit_product=product,
+                    size=size,
+                    quantity=int(qty) if qty else 1,
+                    unit_price=unit_price
                 )
 
-                transaction_obj.provider_reference = yo_res.get("transaction_reference") or yo_res.get("issued_id")
-                transaction_obj.save()
-
+            if payment_mode == 'bank':
+                campaign = CampaignSettings.objects.filter(id=1).first()
                 return Response({
                     "reference": ref,
-                    "gateway": "yo",
-                    "status": "pending",
-                    "message": "A USSD payment prompt has been sent to your phone. Please enter your Mobile Money PIN to authorize the payment."
+                    "bank_name": campaign.bank_name if campaign else "Stanbic Bank Uganda",
+                    "bank_account_name": campaign.bank_account_name if campaign else "Mengo Senior School — Tambula Mengo",
+                    "bank_account_number": campaign.bank_account_number if campaign else "9030099999999"
                 })
-            except Exception as e:
-                logger.error(f"Yo! Payments payment initiation failed: {e}")
-                return Response(
-                    {"detail": f"Yo! Payments failed: {str(e)}"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            else:
+                # Yo! Payments Integration Flow (Mobile Money USSD Push)
+                try:
+                    backend_ipn = request.build_absolute_uri('/api/payments/yo-ipn/')
+                    if backend_ipn.startswith("http://") and "tambulamengo.work.gd" in backend_ipn:
+                        backend_ipn = backend_ipn.replace("http://", "https://")
+
+                    narrative = f"Tambula Mengo Run Kit ({size})" if is_kit else "Tambula Mengo Donation"
+                    target_phone = clean_phone or (donor.phone if donor else "0770000000")
+
+                    SURCHARGE_PERCENTAGE = 11.67
+                    surcharged_amount = int(round(float(amount) * (1 + SURCHARGE_PERCENTAGE / 100)))
+
+                    yo_res = yo_payments.deposit_funds(
+                        reference=ref,
+                        amount=surcharged_amount,
+                        phone=target_phone,
+                        narrative=narrative,
+                        ipn_url=backend_ipn
+                    )
+
+                    transaction_obj.provider_reference = yo_res.get("transaction_reference") or yo_res.get("issued_id")
+                    transaction_obj.save()
+
+                    return Response({
+                        "reference": ref,
+                        "gateway": "yo",
+                        "status": "pending",
+                        "message": "A USSD payment prompt has been sent to your phone. Please enter your Mobile Money PIN to authorize the payment."
+                    })
+                except Exception as yo_err:
+                    logger.error(f"Yo! Payments payment initiation failed: {yo_err}")
+                    return Response(
+                        {"detail": f"Yo! Payments failed: {str(yo_err)}"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+        except Exception as global_err:
+            logger.error(f"Global Payment Initiation Error: {global_err}", exc_info=True)
+            return Response(
+                {"detail": f"Payment initiation error: {str(global_err)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 # ───────────────────── Helper: Auto-check Pesapal status ─────────────────────
 
