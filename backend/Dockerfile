@@ -13,10 +13,12 @@ COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 COPY . /app/
+RUN chmod +x /app/entrypoint.sh
 
 # Create public directory for static asset collection
 RUN python manage.py collectstatic --noinput --clear
 
 EXPOSE 8000
 
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["gunicorn", "backend.wsgi:application", "--bind", "0.0.0.0:8000"]
