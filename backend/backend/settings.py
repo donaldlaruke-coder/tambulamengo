@@ -181,5 +181,10 @@ YO_PAYMENTS_SANDBOX = env.bool('YO_PAYMENTS_SANDBOX', default=False)
 # Active Payment Gateway: 'yo' or 'pesapal'
 PAYMENT_GATEWAY = env('PAYMENT_GATEWAY', default='yo')
 
+# EgoSMS Integration Settings
+EGOSMS_USERNAME = env('EGOSMS_USERNAME', default='katumbaandrewfelix')
+EGOSMS_PASSWORD = env('EGOSMS_PASSWORD', default='5552a108a0ecdf4782146c9504df94c821a34001b3c6bf9b')
+EGOSMS_SENDER_ID = env('EGOSMS_SENDER_ID', default='')
+
 # Frontend callback URL configuration
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:8080')
