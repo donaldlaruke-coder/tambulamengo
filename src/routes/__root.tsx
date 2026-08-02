@@ -6,8 +6,9 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  useRouterState,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
@@ -24,10 +25,7 @@ function NotFoundComponent() {
           The page you're looking for doesn't exist or has been moved.
         </p>
         <div className="mt-6">
-          <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
+          <Link to="/" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
             Go home
           </Link>
         </div>
@@ -54,18 +52,12 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
-            onClick={() => {
-              router.invalidate();
-              reset();
-            }}
+            onClick={() => { router.invalidate(); reset(); }}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Try again
           </button>
-          <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-          >
+          <a href="/" className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent">
             Go home
           </a>
         </div>
@@ -93,14 +85,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f3806cba-a506-407a-9255-84233c83a6e1/id-preview-eb73cb96--f24d6fd1-94d5-4ac9-be10-0a81e3e1c5fd.lovable.app-1784657421219.png" },
     ],
     links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@500;600;700&display=swap",
-      },
+      { rel: "stylesheet", href: appCss },
+      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,500;0,600;0,700;1,500;1,600;1,700&display=swap" },
     ],
   }),
   shellComponent: RootShell,
@@ -125,7 +111,6 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -140,24 +125,68 @@ function RootComponent() {
   );
 }
 
-function SiteHeader() {
+/* ─── Nav link helper ─── */
+function NavLink({ to, children }: { to: string; children: ReactNode }) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const active = to === "/" ? pathname === "/" : pathname.startsWith(to);
   return (
-    <header className="border-b border-border bg-background/90 backdrop-blur sticky top-0 z-40">
-      <div className="container-page flex items-center justify-between py-3">
-        <Link to="/" className="flex items-center gap-3">
-          <img src={crest} alt="Mengo Senior School crest" width={40} height={40} className="h-10 w-10 rounded-full object-cover" />
-          <div className="leading-tight">
-            <div className="font-serif text-lg font-bold text-primary">Tambula Mengo</div>
-            <div className="text-[11px] uppercase tracking-widest text-muted-foreground">Mengo Senior School</div>
+    <Link to={to} className={`nav-link${active ? " nav-link--active" : ""}`}>
+      {children}
+    </Link>
+  );
+}
+
+function SiteHeader() {
+  const [open, setOpen] = useState(false);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  // Close mobile menu on route change
+  useEffect(() => { setOpen(false); }, [pathname]);
+
+  return (
+    <header className="site-header">
+      <div className="site-header__inner container-page">
+        {/* Wordmark */}
+        <Link to="/" className="site-header__brand">
+          <img src={crest} alt="Mengo Senior School crest" className="site-header__crest" />
+          <div className="site-header__brand-text">
+            <span className="site-header__brand-name">Tambula Mengo</span>
+            <span className="site-header__brand-sub">Mengo Senior School</span>
           </div>
         </Link>
-        <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
-          <Link to="/" className="hover:text-primary" activeProps={{ className: "text-primary" }}>Home</Link>
-          <Link to="/donations" className="hover:text-primary" activeProps={{ className: "text-primary" }}>Live donations</Link>
-          <Link to="/kits" className="hover:text-primary" activeProps={{ className: "text-primary" }}>Get a kit</Link>
-          <Link to="/donate" className="btn-primary !min-h-0 !py-2 !px-4 text-sm">Donate</Link>
+
+        {/* Desktop nav */}
+        <nav className="site-header__nav" aria-label="Primary navigation">
+          <NavLink to="/">Home</NavLink>
+          <NavLink to="/kits">Run kits</NavLink>
+          <NavLink to="/donate">Donate</NavLink>
         </nav>
-        <Link to="/donate" className="md:hidden btn-primary !min-h-0 !py-2 !px-4 text-sm">Donate</Link>
+
+        {/* Desktop CTA */}
+        <Link to="/donate" className="site-header__cta" aria-label="Donate now">
+          Give now
+        </Link>
+
+        {/* Mobile hamburger */}
+        <button
+          className="site-header__burger"
+          aria-label={open ? "Close menu" : "Open menu"}
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <span className={`burger-bar burger-bar--top${open ? " burger-bar--open-top" : ""}`} />
+          <span className={`burger-bar burger-bar--mid${open ? " burger-bar--open-mid" : ""}`} />
+          <span className={`burger-bar burger-bar--bot${open ? " burger-bar--open-bot" : ""}`} />
+        </button>
+      </div>
+
+      {/* Mobile drawer */}
+      <div className={`site-header__drawer${open ? " site-header__drawer--open" : ""}`} aria-hidden={!open}>
+        <nav className="site-header__drawer-nav">
+          <Link to="/" className="drawer-link">Home</Link>
+          <Link to="/kits" className="drawer-link">Run kits</Link>
+          <Link to="/donate" className="drawer-link drawer-link--cta">Give now →</Link>
+        </nav>
       </div>
     </header>
   );
@@ -165,28 +194,27 @@ function SiteHeader() {
 
 function SiteFooter() {
   return (
-    <footer className="border-t border-border bg-cream mt-16">
-      <div className="container-page py-10 grid gap-6 md:grid-cols-3 text-sm">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <img src={crest} alt="" width={28} height={28} className="h-7 w-7 rounded-full object-cover" />
-            <span className="font-serif font-bold text-primary">Mengo Senior School</span>
+    <footer className="site-footer">
+      <div className="container-page site-footer__grid">
+        <div className="site-footer__brand">
+          <div className="site-footer__brand-row">
+            <img src={crest} alt="" className="site-footer__crest" />
+            <span className="site-footer__brand-name">Mengo Senior School</span>
           </div>
-          <p className="text-muted-foreground italic">Akwana Akira Ayomba — Make friends and never foes.</p>
-          <p className="text-muted-foreground mt-2">Namirembe Diocese, Church of Uganda · Kampala</p>
+          <p className="site-footer__tagline">Akwana Akira Ayomba — Make friends and never foes.</p>
+          <p className="site-footer__address">Namirembe Diocese, Church of Uganda · Kampala</p>
         </div>
         <div>
-          <div className="font-semibold mb-2">Support</div>
-          <ul className="space-y-1 text-muted-foreground">
-            <li><Link to="/donate" className="hover:text-primary">Make a donation</Link></li>
-            <li><Link to="/kits" className="hover:text-primary">Buy a run kit</Link></li>
-            <li><Link to="/donations" className="hover:text-primary">See live donations</Link></li>
+          <div className="site-footer__col-title">Get involved</div>
+          <ul className="site-footer__links">
+            <li><Link to="/donate" className="site-footer__link">Make a donation</Link></li>
+            <li><Link to="/kits" className="site-footer__link">Buy a run kit</Link></li>
           </ul>
         </div>
       </div>
-      <div className="border-t border-border">
-        <div className="container-page py-4 text-xs text-muted-foreground text-center">
-          © {new Date().getFullYear()} Mengo Senior School. All payments processed securely via MTN MoMo, Airtel Money, Visa and Mastercard.
+      <div className="site-footer__bottom">
+        <div className="container-page site-footer__copy">
+          © {new Date().getFullYear()} Mengo Senior School. All payments processed securely via MTN MoMo, Airtel Money, Visa &amp; Mastercard.
         </div>
       </div>
     </footer>

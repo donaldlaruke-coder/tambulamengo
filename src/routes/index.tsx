@@ -14,7 +14,6 @@ function AnimatedNumber({ to, duration = 1400 }: { to: number; duration?: number
   const [val, setVal] = useState(0);
   const started = useRef(false);
   const ref = useRef<HTMLSpanElement>(null);
-
   useEffect(() => {
     if (to === 0) return;
     const el = ref.current;
@@ -36,15 +35,53 @@ function AnimatedNumber({ to, duration = 1400 }: { to: number; duration?: number
     io.observe(el);
     return () => io.disconnect();
   }, [to, duration]);
-
   return <span ref={ref}>{val.toLocaleString()}</span>;
+}
+
+/* ─── Kit tally graphic ─── */
+function KitBars({ kitCount, donationCount }: { kitCount: number; donationCount: number }) {
+  const total = kitCount + donationCount;
+  const kitPct = total > 0 ? Math.round((kitCount / total) * 100) : 0;
+  const donPct = 100 - kitPct;
+  return (
+    <div className="lp-kit-bars">
+      <div className="lp-kit-bars__track">
+        <div
+          className="lp-kit-bars__segment lp-kit-bars__segment--kit"
+          style={{ width: `${kitPct}%` }}
+          title={`Kit purchases: ${kitCount}`}
+        />
+        <div
+          className="lp-kit-bars__segment lp-kit-bars__segment--don"
+          style={{ width: `${donPct}%` }}
+          title={`Donations: ${donationCount}`}
+        />
+      </div>
+      <div className="lp-kit-bars__legend">
+        <div className="lp-kit-bars__legend-item">
+          <span className="lp-kit-bars__dot lp-kit-bars__dot--kit" />
+          <span className="lp-kit-bars__lbl">Run kits bought</span>
+          <span className="lp-kit-bars__val">{kitCount.toLocaleString()}</span>
+        </div>
+        <div className="lp-kit-bars__legend-item">
+          <span className="lp-kit-bars__dot lp-kit-bars__dot--don" />
+          <span className="lp-kit-bars__lbl">Direct donations</span>
+          <span className="lp-kit-bars__val">{donationCount.toLocaleString()}</span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ─── Main page ─── */
 function Index() {
   const campaign = useCampaign();
   const stats = useCampaignStats();
-  const donations = useLiveDonations(8);
+  // 10 most recent — no "see all" link
+  const donations = useLiveDonations(10);
+  // Separate kit feed for counts
+  const kitFeed = useLiveDonations(200, "kit_purchase");
+  const donFeed = useLiveDonations(200, "donation");
 
   const raised = stats.data?.total_raised ?? 0;
   const goal = campaign.data?.goal_amount ?? 18_000_000_000;
@@ -54,6 +91,8 @@ function Index() {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
   const pct = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
+  const kitCount = kitFeed.data?.length ?? 0;
+  const donCount = donFeed.data?.length ?? 0;
 
   return (
     <div className="lp-root">
@@ -61,11 +100,9 @@ function Index() {
       {/* ═══════════════════════════════════════ HERO ══ */}
       <section className="lp-hero">
         <HeroVideoWall />
-
-        {/* thin gold rule at top */}
         <div className="lp-hero__rule" />
-
         <div className="lp-hero__body container-page">
+
           {/* LEFT — text */}
           <div className="lp-hero__text">
             <div className="lp-hero__eyebrow">
@@ -75,28 +112,20 @@ function Index() {
                 Live campaign
               </span>
             </div>
-
             <h1 className="lp-hero__h1">
               Tambula<br />
               <em className="lp-hero__em">Mengo</em>
             </h1>
-
             <p className="lp-hero__tagline">
               {campaign.data?.tagline ?? "Akwana Akira Ayomba — make friends, never foes."}
             </p>
-
             <p className="lp-hero__desc">
               130 years of shaping Uganda's finest minds. Walk with us on{" "}
               <strong>{eventDateLabel}</strong> — or give from anywhere in the world.
             </p>
-
             <div className="lp-hero__cta">
-              <Link to="/donate" className="lp-cta-primary">
-                Give now
-              </Link>
-              <Link to="/kits" className="lp-cta-ghost">
-                Get a run kit
-              </Link>
+              <Link to="/donate" className="lp-cta-gold">Give now</Link>
+              <Link to="/kits" className="lp-cta-ghost">Get a run kit</Link>
             </div>
           </div>
 
@@ -106,32 +135,20 @@ function Index() {
               <span className="lp-card__label">Total raised</span>
               <span className="lp-card__pct">{pct}%</span>
             </div>
-
             <div className="lp-card__amount">{formatUGX(raised)}</div>
             <div className="lp-card__goal">of {formatUGX(goal)} goal</div>
-
-            {/* Progress track */}
             <div className="lp-card__track">
-              <div
-                className="lp-card__fill"
-                style={{ width: `${Math.max(pct, 2)}%` }}
-              />
+              <div className="lp-card__fill" style={{ width: `${Math.max(pct, 2)}%` }} />
             </div>
-
-            {/* Three numbers */}
             <div className="lp-card__stats">
               <div className="lp-card__stat">
-                <span className="lp-card__stat-val">
-                  <AnimatedNumber to={stats.data?.donor_count ?? 0} />
-                </span>
+                <span className="lp-card__stat-val"><AnimatedNumber to={stats.data?.donor_count ?? 0} /></span>
                 <span className="lp-card__stat-lbl">Donors</span>
               </div>
               <div className="lp-card__divider" />
               <div className="lp-card__stat">
-                <span className="lp-card__stat-val">
-                  <AnimatedNumber to={stats.data?.donation_count ?? 0} />
-                </span>
-                <span className="lp-card__stat-lbl">Gifts</span>
+                <span className="lp-card__stat-val"><AnimatedNumber to={kitCount} /></span>
+                <span className="lp-card__stat-lbl">Kits sold</span>
               </div>
               <div className="lp-card__divider" />
               <div className="lp-card__stat">
@@ -139,7 +156,6 @@ function Index() {
                 <span className="lp-card__stat-lbl">Days left</span>
               </div>
             </div>
-
             <div className="lp-card__footer">
               Live from MTN MoMo · Airtel Money · Stanbic Bank
             </div>
@@ -176,7 +192,6 @@ function Index() {
       {/* ══════════════════════════════════ WHY WE WALK ══ */}
       <section className="lp-why container-page">
         <div className="lp-why__grid">
-          {/* Story */}
           <div className="lp-why__story">
             <span className="lp-kicker">Why we walk</span>
             <h2 className="lp-section-h2">130 years of excellence</h2>
@@ -184,8 +199,6 @@ function Index() {
               {campaign.data?.story ??
                 "Founded in 1895, Mengo Senior School has nurtured Uganda's doctors, engineers, artists and leaders. This run is our collective 'thank you' — and an investment in the next generation of Ugandans who will change the world."}
             </p>
-
-            {/* Pillars */}
             <div className="lp-pillars">
               {[
                 { icon: "📚", title: "Learning spaces", desc: "Refurbish classrooms and the library with modern equipment." },
@@ -203,7 +216,6 @@ function Index() {
             </div>
           </div>
 
-          {/* Event card */}
           <aside className="lp-event-card">
             <div className="lp-event-card__top">
               <img src={crest} alt="" className="lp-event-card__crest" />
@@ -212,7 +224,6 @@ function Index() {
                 <div className="lp-event-card__sub">Sponsored walk &amp; run</div>
               </div>
             </div>
-
             <div className="lp-event-card__rows">
               <div className="lp-event-card__row">
                 <span className="lp-event-card__key">Date</span>
@@ -227,11 +238,9 @@ function Index() {
                 <span className="lp-event-card__val">School pavilion</span>
               </div>
             </div>
-
             {campaign.data?.event_details && (
               <p className="lp-event-card__details">{campaign.data.event_details}</p>
             )}
-
             <Link to="/kits" className="lp-cta-primary lp-event-card__cta">
               Reserve your kit →
             </Link>
@@ -242,22 +251,65 @@ function Index() {
         </div>
       </section>
 
+      {/* ════════════════════════════════ KIT SUMMARY ══ */}
+      <section className="lp-kits-section">
+        <div className="container-page">
+          <header className="lp-section-header" style={{ marginBottom: "2rem" }}>
+            <div className="lp-section-header__left">
+              <span className="lp-kicker">Kit purchases</span>
+              <h2 className="lp-section-h2">Runners signed up</h2>
+            </div>
+          </header>
+
+          <div className="lp-kits-grid">
+            {/* Big number */}
+            <div className="lp-kits-hero">
+              <div className="lp-kits-hero__number">
+                <AnimatedNumber to={kitCount} />
+              </div>
+              <div className="lp-kits-hero__label">run kits purchased</div>
+              <div className="lp-kits-hero__sub">
+                Each kit secures your entry to the walk on {eventDateLabel}.
+              </div>
+              <Link to="/kits" className="lp-cta-primary lp-kits-hero__cta">
+                Get your kit
+              </Link>
+            </div>
+
+            {/* Split bar */}
+            <div className="lp-kits-detail">
+              <div className="lp-kits-detail__title">Breakdown</div>
+              <KitBars kitCount={kitCount} donationCount={donCount} />
+
+              {/* Revenue from kits */}
+              <div className="lp-kits-stat-row">
+                <div className="lp-kits-stat">
+                  <div className="lp-kits-stat__val">{formatUGX(kitCount * 30_000)}</div>
+                  <div className="lp-kits-stat__lbl">Kit revenue</div>
+                </div>
+                <div className="lp-kits-stat">
+                  <div className="lp-kits-stat__val">{formatUGX(raised - kitCount * 30_000 > 0 ? raised - kitCount * 30_000 : 0)}</div>
+                  <div className="lp-kits-stat__lbl">Pure donations</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ════════════════════════════════ LIVE FEED ══ */}
       <section className="lp-feed">
         <div className="container-page">
           <header className="lp-feed__header">
             <div>
               <span className="lp-kicker">Real-time</span>
-              <h2 className="lp-section-h2">Live donations</h2>
+              <h2 className="lp-section-h2">Recent gifts</h2>
             </div>
-            <Link to="/donations" className="lp-feed__all">
-              See all gifts →
-            </Link>
+            {/* No "see all" — capped at 10 */}
           </header>
-
           <div className="lp-feed__card">
             {donations.data?.length ? (
-              <DonationTicker items={donations.data} />
+              <DonationTicker items={donations.data.slice(0, 10)} />
             ) : (
               <div className="lp-feed__empty">
                 Be the first to give — every gift appears here in real time.
@@ -278,12 +330,8 @@ function Index() {
             </p>
           </div>
           <div className="lp-band__actions">
-            <Link to="/donate" className="lp-cta-gold">
-              Donate now
-            </Link>
-            <Link to="/kits" className="lp-cta-ghost lp-band__ghost">
-              Get a run kit
-            </Link>
+            <Link to="/donate" className="lp-cta-gold">Donate now</Link>
+            <Link to="/kits" className="lp-cta-ghost lp-band__ghost">Get a run kit</Link>
           </div>
         </div>
       </section>
