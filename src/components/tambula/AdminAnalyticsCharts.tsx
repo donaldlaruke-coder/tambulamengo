@@ -6,11 +6,12 @@ import {
   PieChart,
   Pie,
   Cell,
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
+  Legend,
 } from "recharts";
 import { formatUGX } from "@/lib/format";
 
@@ -47,7 +48,6 @@ export function AdminAnalyticsCharts({ transactions }: { transactions: Tx[] }) {
   // 1. Daily trend data
   const trendData = useMemo(() => {
     const map = new Map<string, { date: string; amount: number; count: number }>();
-    // Sort ascending by date
     const sorted = [...confirmed].sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
@@ -79,27 +79,26 @@ export function AdminAnalyticsCharts({ transactions }: { transactions: Tx[] }) {
     }));
   }, [confirmed]);
 
-  // 3. Category comparison data (Kits vs Donations)
-  const categoryData = useMemo(() => {
-    let kitsAmount = 0;
-    let donAmount = 0;
-    let kitsCount = 0;
-    let donCount = 0;
+  // 3. Category trend over time (Kits vs Donations Line Chart)
+  const categoryTrendData = useMemo(() => {
+    const map = new Map<string, { date: string; kits: number; donations: number }>();
+    const sorted = [...confirmed].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
 
-    confirmed.forEach((t) => {
+    sorted.forEach((t) => {
+      const d = new Date(t.created_at);
+      const key = d.toLocaleDateString("en-GB", { month: "short", day: "numeric" });
+      const current = map.get(key) || { date: key, kits: 0, donations: 0 };
       if (t.type === "kit_purchase") {
-        kitsAmount += t.amount || 0;
-        kitsCount += 1;
+        current.kits += t.amount || 0;
       } else {
-        donAmount += t.amount || 0;
-        donCount += 1;
+        current.donations += t.amount || 0;
       }
+      map.set(key, current);
     });
 
-    return [
-      { category: "Run Kits", amount: kitsAmount, count: kitsCount, fill: "#C9A24B" },
-      { category: "Donations", amount: donAmount, count: donCount, fill: "#7A1E2B" },
-    ];
+    return Array.from(map.values());
   }, [confirmed]);
 
   if (confirmed.length === 0) {
@@ -226,30 +225,35 @@ export function AdminAnalyticsCharts({ transactions }: { transactions: Tx[] }) {
         </div>
       </div>
 
-      {/* Chart 3: Category Comparison (Bar Chart) */}
+      {/* Chart 3: Category Comparison Line Graph (Run Kits vs Pure Donations) */}
       <div className="card-heritage p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
             <div className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">
-              Product Mix
+              Product Mix Line Graph
             </div>
-            <div className="text-base font-serif font-bold text-primary">Kits vs Pure Donations</div>
+            <div className="text-base font-serif font-bold text-primary">
+              Run Kits vs Direct Donations Trend
+            </div>
           </div>
         </div>
 
-        <div className="h-48 w-full min-h-[190px]">
+        <div className="h-56 w-full min-h-[220px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={categoryData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-              <XAxis
-                type="number"
+            <LineChart data={categoryTrendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+              <YAxis
                 tickFormatter={(val) => `${(val / 1000000).toFixed(1)}M`}
                 tick={{ fontSize: 11 }}
-                axisLine={false}
                 tickLine={false}
+                axisLine={false}
+                width={45}
               />
-              <YAxis dataKey="category" type="category" tick={{ fontSize: 12, fontWeight: 600 }} axisLine={false} tickLine={false} width={80} />
               <Tooltip
-                formatter={(val: number) => [formatUGX(val), "Revenue"]}
+                formatter={(val: number, name: string) => [
+                  formatUGX(val),
+                  name === "kits" ? "Run Kits Revenue" : "Direct Donations",
+                ]}
                 contentStyle={{
                   backgroundColor: "#1F2937",
                   borderColor: "#374151",
@@ -258,8 +262,29 @@ export function AdminAnalyticsCharts({ transactions }: { transactions: Tx[] }) {
                   fontSize: "0.75rem",
                 }}
               />
-              <Bar dataKey="amount" radius={[0, 6, 6, 0]} barSize={24} />
-            </BarChart>
+              <Legend
+                formatter={(value) => (value === "kits" ? "Run Kits" : "Direct Donations")}
+                wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }}
+              />
+              <Line
+                type="monotone"
+                dataKey="kits"
+                name="kits"
+                stroke="#C9A24B"
+                strokeWidth={3}
+                dot={{ r: 4, fill: "#C9A24B" }}
+                activeDot={{ r: 6 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="donations"
+                name="donations"
+                stroke="#7A1E2B"
+                strokeWidth={3}
+                dot={{ r: 4, fill: "#7A1E2B" }}
+                activeDot={{ r: 6 }}
+              />
+            </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
