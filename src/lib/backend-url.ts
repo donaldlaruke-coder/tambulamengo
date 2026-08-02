@@ -10,15 +10,15 @@
  * when running on the server during SSR, and the public HTTPS subdomain in the browser.
  */
 export function getBackendUrl(): string {
-  // Server-side: use internal Docker hostname if available
+  // Server-side (SSR): use internal Docker hostname if available
   if (typeof window === "undefined") {
     return (
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (typeof process !== "undefined" && (process.env as any).INTERNAL_BACKEND_URL) ||
       import.meta.env.VITE_BACKEND_URL ||
-      "https://api.tambulamengo.work.gd"
+      "http://backend:8000"
     );
   }
-  // Client-side (browser): use the public HTTPS subdomain
-  return import.meta.env.VITE_BACKEND_URL || "https://api.tambulamengo.work.gd";
+  // Client-side (browser): use VITE_BACKEND_URL if explicitly set, else use relative same-origin /api path
+  return import.meta.env.VITE_BACKEND_URL || "";
 }
