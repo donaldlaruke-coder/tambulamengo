@@ -114,6 +114,24 @@ class LiveDonationsListView(APIView):
             logger.error(f"Error in LiveDonationsListView: {e}")
             return Response([])
 
+def detect_uganda_payment_method(phone, payment_mode=None):
+    if payment_mode in ['bank', 'card', 'airtel_money', 'mtn_momo']:
+        return payment_mode
+
+    clean_p = str(phone or "").replace("+", "").replace(" ", "").replace("-", "").strip()
+    if clean_p.startswith("0"):
+        clean_p = "256" + clean_p[1:]
+
+    # Airtel Uganda prefixes: 070, 074, 075, 079 (25670, 25674, 25675, 25679)
+    if any(clean_p.startswith(prefix) for prefix in ["25670", "25674", "25675", "25679"]):
+        return "airtel_money"
+
+    # MTN Uganda prefixes: 077, 078, 076, 039 (25677, 25678, 25676, 25639)
+    if any(clean_p.startswith(prefix) for prefix in ["25677", "25678", "25676", "25639"]):
+        return "mtn_momo"
+
+    return "mtn_momo"
+
 class InitiatePaymentView(APIView):
     permission_classes = [AllowAny]
 
@@ -124,7 +142,7 @@ class InitiatePaymentView(APIView):
             name = data.get("name")
             phone = data.get("phone")
             email = data.get("email")
-            payment_mode = data.get("payment_mode") # "mobile" | "card" | "bank"
+            payment_mode = data.get("payment_mode") # "mobile" | "card" | "bank" | "airtel_money" | "mtn_momo"
             kit_id = data.get("kit_id")
             size = data.get("size")
             qty = data.get("qty", 1)
@@ -162,7 +180,7 @@ class InitiatePaymentView(APIView):
 
             # Create Transaction
             tx_type = 'kit_purchase' if is_kit else 'donation'
-            db_payment_method = 'bank' if payment_mode == 'bank' else ('card' if payment_mode == 'card' else 'mtn_momo')
+            db_payment_method = detect_uganda_payment_method(clean_phone, payment_mode)
             
             transaction_obj = Transaction.objects.create(
                 donor=donor,

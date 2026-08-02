@@ -247,7 +247,7 @@ function DonatePage() {
             name: name || "Anonymous",
             phone: normalized || phone,
             email: email || null,
-            payment_mode: paymentMode,
+            payment_mode: paymentMode === "mobile" ? (network === "Airtel" ? "airtel_money" : "mtn_momo") : paymentMode,
             kit_id: isKitFlow ? search.kit : null,
             size: isKitFlow ? search.size : null,
             qty: isKitFlow ? search.qty : null,
