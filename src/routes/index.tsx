@@ -241,7 +241,7 @@ function Index() {
             <h2 className="lp-section-h2">130 years of excellence</h2>
             <p className="lp-why__body">
               {campaign.data?.story ||
-                "For 130 years Mengo Senior School has shaped generations of Ugandan leaders. Tambula Mengo is our sponsored walk-and-run to raise funds for the next chapter. Building the Akwana House!"}
+                "For 130 years Mengo Senior School has shaped generations of Ugandan leaders. Tambula Mengo is our sponsored walk-and-run to raise funds for the next chapter. Building the Mega Dining Hall Complex!"}
             </p>
             <div className="lp-pillars">
               {[
