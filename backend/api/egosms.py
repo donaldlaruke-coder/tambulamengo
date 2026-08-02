@@ -10,7 +10,7 @@ EGOSMS_API_URL = getattr(settings, 'EGOSMS_API_URL', 'https://api.egosms.co/v2/j
 def get_egosms_credentials():
     username = getattr(settings, 'EGOSMS_USERNAME', '')
     password = getattr(settings, 'EGOSMS_PASSWORD', '')
-    sender_id = getattr(settings, 'EGOSMS_SENDER_ID', 'TambulaMengo')
+    sender_id = getattr(settings, 'EGOSMS_SENDER_ID', '')
     return username, password, sender_id
 
 def send_sms(to_phone, message):
@@ -33,10 +33,11 @@ def send_sms(to_phone, message):
         "method": "send_sms",
         "username": username,
         "password": password,
-        "sender": sender_id,
         "to": clean_phone,
         "message": message
     }
+    if sender_id and sender_id.strip():
+        payload["sender"] = sender_id.strip()
 
     headers = {
         "Content-Type": "application/json",
