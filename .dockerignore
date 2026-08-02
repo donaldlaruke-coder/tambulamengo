@@ -1,0 +1,32 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+.output
+
+# Version control & environment
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+
+# Tooling & IDE
+.lovable
+.gemini
+.idea
+.vscode
+
+# Logs & temp
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+
+# Docker files
+Dockerfile
+.dockerignore
+docker-compose*.yml
