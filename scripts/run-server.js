@@ -33,6 +33,11 @@ const candidates = [
 
 console.log(`[run-server] Found ${candidates.length} candidate JS files in .output/dist:`, candidates);
 
+// Filter out static client assets from candidate server entries if possible
+const nonAssetCandidates = candidates.filter(
+  (p) => !p.includes("/public/") && !p.includes("/client/") && !p.includes("/assets/")
+);
+
 // Prefer primary server entry files
 const serverEntry =
   candidates.find(
@@ -40,9 +45,11 @@ const serverEntry =
       p.endsWith("/server/index.mjs") ||
       p.endsWith("/server/server.js") ||
       p.endsWith("/server/index.js") ||
-      p.endsWith("/server.js") ||
-      p.includes("/server/")
-  ) || candidates[0];
+      p.endsWith("/server.js")
+  ) ||
+  nonAssetCandidates.find((p) => p.includes("/server/")) ||
+  nonAssetCandidates[0] ||
+  candidates[0];
 
 if (!serverEntry) {
   console.error("[run-server] Error: No server JS build files found in .output or dist");
