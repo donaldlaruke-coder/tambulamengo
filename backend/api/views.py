@@ -309,6 +309,32 @@ def check_and_update_pesapal_transaction(tx):
 
 # ───────────────────── Helper: Auto-check Yo! Payments status ─────────────────────
 
+def trigger_egosms_notification(tx):
+    """
+    Triggers EgoSMS notification for a confirmed transaction.
+    """
+    try:
+        donor = tx.donor
+        target_phone = (donor.phone if donor else None) or tx.donor_display_name
+        donor_name = (donor.name if donor else None) or tx.donor_display_name or "Supporter"
+
+        clean_test = str(target_phone).replace("+", "").replace(" ", "").replace("-", "").strip() if target_phone else ""
+        if not clean_test.isdigit():
+            target_phone = donor.phone if donor else None
+
+        if target_phone:
+            if tx.type == 'kit_purchase':
+                first_item = tx.order_items.first()
+                kit_name = first_item.kit_product.name if (first_item and first_item.kit_product) else "Tambula Mengo Run Kit"
+                size = first_item.size if first_item else ""
+                quantity = first_item.quantity if first_item else 1
+                egosms.send_kit_purchase_sms(target_phone, donor_name, kit_name, size, quantity, tx.amount, tx.internal_reference)
+            else:
+                egosms.send_donation_sms(target_phone, donor_name, tx.amount, tx.internal_reference)
+    except Exception as sms_err:
+        logger.error(f"[EgoSMS] Error triggering SMS for {tx.internal_reference}: {sms_err}")
+
+
 def check_and_update_yo_transaction(tx):
     """
     Queries Yo! Payments for transaction status if currently pending.
@@ -330,6 +356,7 @@ def check_and_update_yo_transaction(tx):
                 tx.provider_reference = status_res.get("momo_ref")
             tx.save()
             logger.info(f"Transaction {tx.internal_reference} auto-confirmed via Yo! Payments check.")
+            trigger_egosms_notification(tx)
         elif tx_status in ["FAILED", "CANCELLED", "REJECTED"]:
             tx.status = 'failed'
             tx.save()
@@ -445,54 +472,9 @@ class YoIPNView(APIView):
             tx.save()
             logger.info(f"[Yo! IPN] ✅ {external_ref} CONFIRMED. MNO ref: {mno_ref}")
 
-            # ════════════════════════════════════════════════════════════
-            # ✏️  ── SMS MESSAGE TEMPLATES ────────────────────────────────
-            #   Edit these messages to whatever you want Yo! to SMS
-            #   to the payer's phone after their payment is confirmed.
-            #
-            #   Available variables:
-            #     donor_name       → payer's name (e.g. "John Ssali")
-            #     formatted_amount → e.g. "UGX 50,000"
-            #     tx_ref           → your internal reference
-            #     mno_ref          → MTN/Airtel transaction code
-            # ════════════════════════════════════════════════════════════
-
-            short_name = (donor_name.split()[0] if donor_name else "Supporter")[:12]
-            if is_kit:
-                # SMS for kit / run registration payments (<= 159 chars)
-                sms = (
-                    f"Mengo SS: Dear {short_name}, payment of {formatted_amount} for Run Kit "
-                    f"is confirmed! Ref:{tx_ref}. Pickup:Pavilion (rep/child pickup & swaps ok). "
-                    f"Helps:0783279346/0784455449"
-                )
-            else:
-                # SMS for general donations (<= 159 chars)
-                sms = (
-                    f"Mengo SS: Dear {short_name}, thank you for your gift of {formatted_amount}! "
-                    f"Ref:{tx_ref}. Your gift empowers young minds. May God bless you! "
-                    f"Helps:0783279346/0784455449"
-                )
-            if len(sms) > 159:
-                sms = sms[:156] + "..."
-
-            # 📱 Trigger EgoSMS Gateway (JSON API) if configured
-            try:
-                target_phone = (donor.phone if donor else None) or account
-                if target_phone:
-                    if is_kit:
-                        first_item = tx.order_items.first()
-                        kit_name = first_item.kit_product.name if (first_item and first_item.kit_product) else "Tambula Mengo Run Kit"
-                        size = first_item.size if first_item else ""
-                        quantity = first_item.quantity if first_item else 1
-                        egosms.send_kit_purchase_sms(target_phone, donor_name, kit_name, size, quantity, tx.amount, tx_ref)
-                    else:
-                        egosms.send_donation_sms(target_phone, donor_name, tx.amount, tx_ref)
-            except Exception as sms_err:
-                logger.error(f"[EgoSMS] Error sending SMS: {sms_err}")
-
-            # ════════════════════════════════════════════════════════════
-            # Respond with the SMS trigger (do NOT change this line)
-            return self.sms_response(sms)
+            # 📱 Trigger EgoSMS Gateway (JSON API)
+            trigger_egosms_notification(tx)
+            return HttpResponse("OK", status=200)
 
         elif tx_status in ["FAILED", "CANCELLED", "REJECTED", "INSUFFICIENT_BALANCE"]:
             tx.status = 'failed'
@@ -802,6 +784,7 @@ class AdminConfirmTransactionView(APIView):
             tx.status = 'confirmed'
             tx.confirmed_at = timezone.now()
             tx.save()
+            trigger_egosms_notification(tx)
             return Response({'success': True})
         except Transaction.DoesNotExist:
             return Response({'detail': 'Transaction not found'}, status=status.HTTP_404_NOT_FOUND)
