@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { formatUGX, timeAgo } from "@/lib/format";
@@ -137,10 +137,13 @@ function Admin() {
       )}
       {tab === "pending" && (
         <div className="card-heritage p-4 md:p-6">
-          <p className="text-sm text-muted-foreground mb-3">
-            Bank transfers and unconfirmed mobile-money payments. Confirm once you've verified the payment.
-          </p>
-          <TxTable rows={pending} showActions />
+          <div className="flex items-start gap-3 rounded-lg bg-amber-500/8 border border-amber-500/20 px-4 py-3 mb-4">
+            <span className="text-amber-600 text-base mt-0.5">⏳</span>
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              These payments are awaiting confirmation from the payment gateway (MTN MoMo, Airtel Money, Pesapal). They confirm automatically — no manual action required.
+            </p>
+          </div>
+          <TxTable rows={pending} />
         </div>
       )}
       {tab === "kits" && (
@@ -162,49 +165,13 @@ function Kpi({ label, value, highlight }: { label: string; value: string; highli
   );
 }
 
-function TxTable({ rows, showActions }: { rows: AdminTx[]; showActions?: boolean }) {
+function TxTable({ rows }: { rows: AdminTx[] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [methodFilter, setMethodFilter] = useState<string>("all");
   const [groupByDay, setGroupByDay] = useState<boolean>(true);
 
-  const qc = useQueryClient();
-  const confirm = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`${getBackendUrl()}/api/admin-api/confirm/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ id }),
-      });
-      if (!res.ok) throw new Error("Failed to confirm");
-    },
-    onSuccess: () => {
-      toast.success("Confirmed");
-      qc.invalidateQueries({ queryKey: ["admin-txs"] });
-      qc.invalidateQueries({ queryKey: ["admin-stats"] });
-    },
-    onError: (e) => toast.error((e as Error).message),
-  });
-
-  const reject = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`${getBackendUrl()}/api/admin-api/reject/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ id }),
-      });
-      if (!res.ok) throw new Error("Failed to reject");
-    },
-    onSuccess: () => {
-      toast.success("Rejected");
-      qc.invalidateQueries({ queryKey: ["admin-txs"] });
-      qc.invalidateQueries({ queryKey: ["admin-stats"] });
-    },
-    onError: (e) => toast.error((e as Error).message),
-  });
 
   // Filter rows based on search and dropdown categories
   const filtered = useMemo(() => {
@@ -399,31 +366,21 @@ function TxTable({ rows, showActions }: { rows: AdminTx[]; showActions?: boolean
               </div>
 
               {/* Table for this day */}
-              <TableContent rows={group.items} showActions={showActions} confirm={confirm} reject={reject} />
+              <TableContent rows={group.items} />
             </div>
           ))}
         </div>
       ) : (
         /* Flat List View */
         <div className="card-heritage overflow-hidden">
-          <TableContent rows={filtered} showActions={showActions} confirm={confirm} reject={reject} />
+          <TableContent rows={filtered} />
         </div>
       )}
     </div>
   );
 }
 
-function TableContent({
-  rows,
-  showActions,
-  confirm,
-  reject,
-}: {
-  rows: AdminTx[];
-  showActions?: boolean;
-  confirm: any;
-  reject: any;
-}) {
+function TableContent({ rows }: { rows: AdminTx[] }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -436,7 +393,6 @@ function TableContent({
             <th className="py-2.5 px-3 text-right">Amount</th>
             <th className="py-2.5 px-3">Status</th>
             <th className="py-2.5 px-3">Ref / Code</th>
-            {showActions && <th className="py-2.5 px-4 text-right">Action</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -482,22 +438,6 @@ function TableContent({
                   </div>
                 )}
               </td>
-              {showActions && (
-                <td className="py-3 px-4 text-right whitespace-nowrap">
-                  <button
-                    onClick={() => confirm.mutate(t.id)}
-                    className="text-xs bg-primary text-primary-foreground font-semibold rounded-md px-2.5 py-1.5 mr-2 hover:opacity-90 transition-opacity"
-                  >
-                    Confirm
-                  </button>
-                  <button
-                    onClick={() => reject.mutate(t.id)}
-                    className="text-xs text-destructive hover:underline font-medium"
-                  >
-                    Reject
-                  </button>
-                </td>
-              )}
             </tr>
           ))}
         </tbody>
