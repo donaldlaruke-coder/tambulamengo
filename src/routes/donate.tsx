@@ -64,7 +64,14 @@ function DonatePage() {
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`${getBackendUrl()}/api/payments/verify/?reference=${reference}`);
-        const data = await res.json();
+        if (!res.ok) return;
+        const text = await res.text();
+        let data: any = null;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          return; // Ignore non-JSON responses during polling
+        }
         if (data && data.status === "confirmed") {
           clearInterval(interval);
           setPendingYoPayment(false);
@@ -247,8 +254,18 @@ function DonatePage() {
             message: message || null
           })
         });
-        const resData = await response.json();
-        if (!response.ok) throw new Error(resData.detail || "Initiation failed");
+        const resText = await response.text();
+        let resData: any = {};
+        try {
+          resData = JSON.parse(resText);
+        } catch {
+          throw new Error(
+            response.status === 404
+              ? "Backend API endpoint not found (404). Please check server configuration."
+              : `Server returned non-JSON response (${response.status}): ${resText.slice(0, 100)}`
+          );
+        }
+        if (!response.ok) throw new Error(resData.detail || resData.error || "Initiation failed");
         
         setReference(resData.reference);
         if (resData.redirect_url) {

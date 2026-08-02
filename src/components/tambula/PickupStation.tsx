@@ -53,7 +53,15 @@ export function PickupStation() {
         body: JSON.stringify({ reference: cleanRef }),
       });
 
-      const data = await res.json();
+      const resText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(resText);
+      } catch {
+        toast.error(`Server Error (${res.status}). Ensure you are logged into admin.`);
+        setScanResult({ error: `Server error (${res.status}): ${resText.slice(0, 100)}` });
+        return;
+      }
       if (!res.ok) {
         toast.error(data.detail || "Verification failed");
         setScanResult({ error: data.detail || "Invalid or Unconfirmed Kit Reference" });
