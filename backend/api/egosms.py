@@ -4,8 +4,8 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-# EgoSMS Uganda API Endpoint (Use http://egosms.co/api/v1/json/ to avoid HTTPS connect timeout on EgoSMS servers)
-EGOSMS_API_URL = getattr(settings, 'EGOSMS_API_URL', 'http://egosms.co/api/v1/json/')
+# EgoSMS Uganda Verified Working API Endpoint
+EGOSMS_API_URL = getattr(settings, 'EGOSMS_API_URL', 'https://comms.egosms.co/api/v1/plain/')
 
 def get_egosms_credentials():
     username = getattr(settings, 'EGOSMS_USERNAME', '')
@@ -15,8 +15,8 @@ def get_egosms_credentials():
 
 def send_sms(to_phone, message):
     """
-    Sends a SMS to a phone number via EgoSMS Uganda API.
-    Docs: https://blog.egosms.co/what-is-the-egosms-api-and-who-is-it-for/
+    Sends an SMS via EgoSMS API (Method: sendsms).
+    Docs: https://developers.pahappa.com/
     """
     username, password, sender_id = get_egosms_credentials()
 
@@ -29,78 +29,59 @@ def send_sms(to_phone, message):
     if clean_phone.startswith("0"):
         clean_phone = "256" + clean_phone[1:]
 
-    # Enforce maximum 159 characters to ensure single-segment SMS delivery (1 SMS credit)
+    # Enforce maximum 159 characters for 1 single SMS credit
     if len(message) > 159:
         message = message[:156] + "..."
 
-    # EgoSMS Multi-format Payloads
-    v2_payload = {
-        "method": "send_sms",
-        "userdata": {
-            "username": username,
-            "password": password
-        },
-        "msgdata": [
-            {
-                "number": clean_phone,
-                "message": message
-            }
-        ]
-    }
-    if sender_id and sender_id.strip():
-        v2_payload["userdata"]["senderid"] = sender_id.strip()
-
-    flat_payload = {
-        "method": "send_sms",
+    # Verified working EgoSMS query parameters
+    params = {
+        "method": "sendsms",
         "username": username,
         "password": password,
         "number": clean_phone,
-        "to": clean_phone,
         "message": message
     }
     if sender_id and sender_id.strip():
-        flat_payload["sender"] = sender_id.strip()
+        params["sender"] = sender_id.strip()
 
-    headers = {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-    }
+    logger.info(f"[EgoSMS] Sending SMS ({len(message)} chars) to {clean_phone} via {EGOSMS_API_URL}")
+    try:
+        response = requests.get(EGOSMS_API_URL, params=params, timeout=12)
+        logger.info(f"[EgoSMS] Response ({response.status_code}): {response.text}")
 
-    endpoints = [
-        ("http://egosms.co/api/v1/json/", flat_payload),
-        ("http://egosms.co/api/v1/json/", v2_payload),
-        ("https://www.egosms.co/api/v1/json/", flat_payload)
-    ]
+        if response.status_code == 200 and '"Status":"OK"' in response.text:
+            return {"success": True, "raw_response": response.text}
 
-    for target_url, payload_data in endpoints:
-        try:
-            logger.info(f"[EgoSMS] Sending SMS ({len(message)} chars) to {clean_phone} via {target_url}")
-            response = requests.post(target_url, json=payload_data, headers=headers, timeout=6)
-            logger.info(f"[EgoSMS] Response ({response.status_code}): {response.text}")
+        # Fallback to POST if needed
+        post_res = requests.post(EGOSMS_API_URL, params=params, timeout=12)
+        logger.info(f"[EgoSMS Post Fallback] Response ({post_res.status_code}): {post_res.text}")
+        if post_res.status_code == 200 and '"Status":"OK"' in post_res.text:
+            return {"success": True, "raw_response": post_res.text}
 
-            if response.status_code == 200 and "status" in response.text.lower() and "failed" not in response.text.lower():
-                return {"success": True, "raw_response": response.text}
+        return {"success": False, "raw_response": response.text}
 
-            # Try form-urlencoded if JSON returned Method Not Set
-            form_res = requests.post(target_url, data=flat_payload, timeout=6)
-            logger.info(f"[EgoSMS Form] Response ({form_res.status_code}): {form_res.text}")
-            if form_res.status_code == 200 and "failed" not in form_res.text.lower():
-                return {"success": True, "raw_response": form_res.text}
-
-        except Exception as conn_err:
-            logger.warning(f"[EgoSMS] Endpoint {target_url} failed: {conn_err}")
-            continue
-
-    return {"success": False, "error": "All EgoSMS endpoints failed to accept request"}
+    except Exception as e:
+        logger.error(f"[EgoSMS] Failed to send SMS to {clean_phone}: {e}")
+        return {"success": False, "error": str(e)}
 
 def send_kit_purchase_sms(phone, donor_name, kit_name, size, quantity, amount, reference):
     """
     Helper to send a formatted SMS notification to a kit buyer upon payment confirmation.
+    Handles single or multiple kits dynamically. Specifies School Main Gate pickup.
     Guaranteed <= 159 characters (1 SMS credit).
     """
-    short_name = (donor_name.split()[0] if donor_name else "Supporter")[:12]
+    short_name = (donor_name.split()[0] if donor_name else "Supporter")[:10]
     size_str = f" ({size})" if size else ""
-    qty_str = f"{quantity}x " if quantity and quantity > 1 else ""
+
+    try:
+        qty_num = int(quantity) if quantity else 1
+    except Exception:
+        qty_num = 1
+
+    if qty_num > 1:
+        item_desc = f"{qty_num}x Kits{size_str}"
+    else:
+        item_desc = f"Kit{size_str}"
 
     try:
         formatted_amount = f"UGX {int(float(amount)):,}"
@@ -108,8 +89,8 @@ def send_kit_purchase_sms(phone, donor_name, kit_name, size, quantity, amount, r
         formatted_amount = f"UGX {amount}"
 
     message = (
-        f"Mengo SS: Dear {short_name}, payment of {formatted_amount} for {qty_str}Kit{size_str} "
-        f"is confirmed! Ref:{reference}. Pickup:Pavilion (rep/child pickup & swaps ok). "
+        f"Mengo SS: Dear {short_name}, payment of {formatted_amount} for {item_desc} "
+        f"confirmed! Ref:{reference}. Student/rep pickup at School Main Gate. "
         f"Helps:0783279346/0784455449"
     )
     return send_sms(phone, message)
