@@ -60,25 +60,54 @@ class CampaignStatsView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        txs = Transaction.objects.filter(status='confirmed', type='donation')
-        total_raised = sum(t.amount for t in txs)
-        donor_count = txs.values('donor_id').distinct().count()
-        donation_count = txs.count()
-        average_donation = int(total_raised / donation_count) if donation_count > 0 else 0
+        try:
+            txs = Transaction.objects.filter(status='confirmed')
+            total_raised = sum((t.amount or 0) for t in txs)
+            donor_count = txs.exclude(donor_id=None).values('donor_id').distinct().count()
+            donation_count = txs.count()
+            average_donation = int(total_raised / donation_count) if donation_count > 0 else 0
 
-        return Response({
-            "total_raised": total_raised,
-            "donor_count": donor_count,
-            "donation_count": donation_count,
-            "average_donation": average_donation
-        })
+            return Response({
+                "total_raised": total_raised,
+                "donor_count": donor_count,
+                "donation_count": donation_count,
+                "average_donation": average_donation
+            })
+        except Exception as e:
+            logger.error(f"Error in CampaignStatsView: {e}")
+            return Response({
+                "total_raised": 0,
+                "donor_count": 0,
+                "donation_count": 0,
+                "average_donation": 0
+            })
 
-class LiveDonationsListView(generics.ListAPIView):
+class LiveDonationsListView(APIView):
     permission_classes = [AllowAny]
-    serializer_class = TransactionSerializer
 
-    def get_queryset(self):
-        return Transaction.objects.filter(status='confirmed').order_by('-confirmed_at')[:25]
+    def get(self, request):
+        try:
+            txs = Transaction.objects.filter(status='confirmed').order_by('-created_at')[:25]
+            result = []
+            for t in txs:
+                donor_name = (t.donor.name if t.donor else None) or t.donor_display_name or ("Anonymous" if t.is_anonymous else "Supporter")
+                result.append({
+                    "id": str(t.id),
+                    "amount": t.amount or 0,
+                    "currency": t.currency or "UGX",
+                    "type": t.type,
+                    "payment_method": t.payment_method,
+                    "status": t.status,
+                    "is_anonymous": t.is_anonymous,
+                    "donor_name": "Anonymous" if t.is_anonymous else donor_name,
+                    "message": t.message,
+                    "created_at": str(t.created_at),
+                    "confirmed_at": str(t.confirmed_at) if t.confirmed_at else str(t.created_at)
+                })
+            return Response(result)
+        except Exception as e:
+            logger.error(f"Error in LiveDonationsListView: {e}")
+            return Response([])
 
 class InitiatePaymentView(APIView):
     permission_classes = [AllowAny]
