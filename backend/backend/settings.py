@@ -23,7 +23,8 @@ env = environ.Env(
     PESAPAL_SANDBOX=(bool, True),
 )
 
-# Read .env file from the parent directory of backend (project root)
+# Read .env file from both backend directory and root directory
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 environ.Env.read_env(os.path.join(BASE_DIR.parent, '.env'))
 
 # SECURITY WARNING: keep the secret key used in production secret!
