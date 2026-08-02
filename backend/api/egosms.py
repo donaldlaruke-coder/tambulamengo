@@ -15,7 +15,7 @@ def get_egosms_credentials():
 
 def send_sms(to_phone, message):
     """
-    Sends a SMS to a phone number via EgoSMS Uganda JSON API.
+    Sends a SMS to a phone number via EgoSMS Uganda API.
     Docs: https://blog.egosms.co/what-is-the-egosms-api-and-who-is-it-for/
     """
     username, password, sender_id = get_egosms_credentials()
@@ -29,36 +29,55 @@ def send_sms(to_phone, message):
     if clean_phone.startswith("0"):
         clean_phone = "256" + clean_phone[1:]
 
-    payload = {
-        "method": "send_sms",
-        "username": username,
-        "password": password,
-        "to": clean_phone,
-        "message": message
-    }
-    if sender_id and sender_id.strip():
-        payload["sender"] = sender_id.strip()
-
     # Enforce maximum 159 characters to ensure single-segment SMS delivery (1 SMS credit)
     if len(message) > 159:
-        payload["message"] = message[:156] + "..."
+        message = message[:156] + "..."
+
+    # Official EgoSMS JSON Payload Structure
+    payload = {
+        "method": "send_sms",
+        "userdata": {
+            "username": username,
+            "password": password
+        },
+        "msgdata": [
+            {
+                "number": clean_phone,
+                "message": message
+            }
+        ]
+    }
+    if sender_id and sender_id.strip():
+        payload["userdata"]["senderid"] = sender_id.strip()
 
     headers = {
         "Content-Type": "application/json",
         "Accept": "application/json"
     }
 
-    logger.info(f"[EgoSMS] Sending SMS ({len(payload['message'])} chars) to {clean_phone} via {EGOSMS_API_URL}")
+    logger.info(f"[EgoSMS] Sending SMS ({len(message)} chars) to {clean_phone} via {EGOSMS_API_URL}")
     try:
         response = requests.post(EGOSMS_API_URL, json=payload, headers=headers, timeout=15)
         logger.info(f"[EgoSMS] Response ({response.status_code}): {response.text}")
-        response.raise_for_status()
 
-        try:
-            res_json = response.json()
-            return {"success": True, "data": res_json, "raw_response": response.text}
-        except Exception:
-            return {"success": True, "raw_response": response.text}
+        # If v2 fails or returns error in response, try flat API POST fallback
+        if response.status_code != 200 or "error" in response.text.lower() or "invalid" in response.text.lower():
+            flat_payload = {
+                "method": "send_sms",
+                "username": username,
+                "password": password,
+                "number": clean_phone,
+                "to": clean_phone,
+                "message": message
+            }
+            if sender_id and sender_id.strip():
+                flat_payload["sender"] = sender_id.strip()
+            
+            fallback_res = requests.post("https://www.egosms.co/api/v1/json/", json=flat_payload, headers=headers, timeout=15)
+            logger.info(f"[EgoSMS Fallback] Response ({fallback_res.status_code}): {fallback_res.text}")
+            return {"success": True, "raw_response": fallback_res.text}
+
+        return {"success": True, "raw_response": response.text}
 
     except Exception as e:
         logger.error(f"[EgoSMS] Failed to send SMS to {clean_phone}: {e}")
