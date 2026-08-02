@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { formatUGX, timeAgo } from "@/lib/format";
@@ -267,7 +267,6 @@ function TxTable({ rows }: { rows: AdminTx[] }) {
           </select>
 
           {/* Status Filter */}
-          {!showActions && (
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -278,7 +277,6 @@ function TxTable({ rows }: { rows: AdminTx[] }) {
               <option value="pending">⏳ Pending</option>
               <option value="failed">✕ Failed</option>
             </select>
-          )}
 
           {/* Payment Method Filter */}
           <select
