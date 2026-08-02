@@ -373,11 +373,21 @@ function DonatePage() {
           </header>
 
           {isKitFlow ? (
-            <div className="card-heritage p-5">
-              <div className="text-sm text-muted-foreground">Amount to pay</div>
-              <div className="text-3xl font-serif font-bold text-primary">{formatUGX(amount)}</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                {search.qty ?? 1} × Tambula Mengo Run Kit{search.size ? ` (${search.size})` : ""}
+            <div className="space-y-3">
+              <div className="card-heritage p-5">
+                <div className="text-sm text-muted-foreground">Amount to pay</div>
+                <div className="text-3xl font-serif font-bold text-primary">{formatUGX(amount)}</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {search.qty ?? 1} × Tambula Mengo Run Kit{search.size ? ` (${search.size})` : ""}
+                </div>
+              </div>
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2 text-xs text-amber-950 dark:text-amber-100">
+                <div className="font-bold text-amber-900 dark:text-amber-200 text-sm flex items-center gap-1.5">
+                  🔒 Representative Pickup & Size Notice
+                </div>
+                <div>• <strong>Pickup Location:</strong> Mengo Senior School <strong>Main Gate</strong>.</div>
+                <div>• <strong>Representative / Student Pickup:</strong> Anyone presenting your reference code can collect your kit on your behalf — <strong>do NOT share your code with unauthorized persons.</strong></div>
+                <div>• <strong>Flexible Sizes:</strong> T-shirt sizes are fully adjustable and can be exchanged directly at the pickup station upon collection.</div>
               </div>
             </div>
           ) : (
@@ -574,11 +584,11 @@ function DonatePage() {
 
                 <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2 text-xs text-foreground mt-3">
                   <div className="font-bold text-primary text-sm flex items-center gap-1.5">
-                    📍 Kit Collection Guidelines & Support
+                    📍 Kit Collection & Security Guidelines
                   </div>
-                  <div>• <strong>Venue:</strong> Mengo Senior School Pavilion</div>
-                  <div>• <strong>Representative Pickup:</strong> Allowed (e.g. child can collect on parent's behalf by showing QR Pass)</div>
-                  <div>• <strong>Size Exchanges:</strong> Permitted at the pavilion subject to stock availability</div>
+                  <div>• <strong>Pickup Location:</strong> Mengo Senior School <strong>Main Gate</strong></div>
+                  <div>• <strong>Representative / Student Pickup:</strong> Anyone presenting this reference code (<strong className="font-mono text-primary">{reference}</strong>) can collect your kit — <strong>do NOT share your code with unauthorized persons.</strong></div>
+                  <div>• <strong>Flexible Size Adjustments:</strong> T-shirt sizes are fully adjustable and can be exchanged directly at the pickup station.</div>
                   <div className="pt-2 border-t border-primary/10 flex flex-wrap gap-2 items-center">
                     <span className="font-semibold text-primary">Helplines:</span>
                     <a href="tel:+256783279346" className="text-primary underline font-bold">+256 783 279 346</a>

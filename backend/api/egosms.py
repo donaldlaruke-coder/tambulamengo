@@ -90,8 +90,8 @@ def send_kit_purchase_sms(phone, donor_name, kit_name, size, quantity, amount, r
 
     message = (
         f"Mengo SS: Dear {short_name}, payment of {formatted_amount} for {item_desc} "
-        f"confirmed! Ref:{reference}. Student/rep pickup at School Main Gate. "
-        f"Helps:0783279346/0784455449"
+        f"confirmed! Ref:{reference}. Show ref/rep pickup at School Main Gate. "
+        f"Sizes adjustable at gate."
     )
     return send_sms(phone, message)
 

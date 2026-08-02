@@ -158,16 +158,18 @@ function KitsPage() {
                 >
                   Continue to payment
                 </button>
-                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2 text-xs text-foreground mt-4">
-                  <div className="font-bold text-primary text-sm">📍 Kit Collection & Helpline</div>
-                  <div>• <strong>Venue:</strong> Mengo Senior School Pavilion</div>
-                  <div>• <strong>Representative Pickup:</strong> Allowed (e.g. child can collect on parent's behalf with QR Pass)</div>
-                  <div>• <strong>Size Swaps:</strong> Permitted at the pavilion subject to stock availability</div>
-                  <div className="pt-2 border-t border-primary/10 flex flex-wrap gap-2 items-center">
-                    <span className="font-semibold text-primary">Helplines:</span>
-                    <a href="tel:+256783279346" className="text-primary underline font-bold">+256 783 279 346</a>
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2 text-xs text-amber-950 dark:text-amber-100 mt-4">
+                  <div className="font-bold text-amber-900 dark:text-amber-200 text-sm flex items-center gap-1.5">
+                    🔒 Representative Pickup & Size Notice
+                  </div>
+                  <div>• <strong>School Main Gate Pickup:</strong> Kits are collected at the <strong>School Main Gate</strong>.</div>
+                  <div>• <strong>Representative / Student Pickup:</strong> Anyone with your reference code (e.g. <code className="bg-background px-1 py-0.5 rounded font-mono text-[11px]">KIT-XXXX-XXXX</code>) can collect your kit on your behalf — <strong>do NOT share your code with unauthorized persons.</strong></div>
+                  <div>• <strong>Flexible Size Adjustments:</strong> T-shirt sizes are fully adjustable and can be exchanged directly at the pickup station upon collection.</div>
+                  <div className="pt-2 border-t border-amber-500/20 flex flex-wrap gap-2 items-center text-xs">
+                    <span className="font-semibold text-amber-900 dark:text-amber-200">Helplines:</span>
+                    <a href="tel:+256783279346" className="text-amber-900 dark:text-amber-200 underline font-bold">+256 783 279 346</a>
                     <span>·</span>
-                    <a href="tel:+256784455449" className="text-primary underline font-bold">+256 784 455 449</a>
+                    <a href="tel:+256784455449" className="text-amber-900 dark:text-amber-200 underline font-bold">+256 784 455 449</a>
                   </div>
                 </div>
               </div>
