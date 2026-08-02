@@ -39,12 +39,16 @@ def send_sms(to_phone, message):
     if sender_id and sender_id.strip():
         payload["sender"] = sender_id.strip()
 
+    # Enforce maximum 159 characters to ensure single-segment SMS delivery (1 SMS credit)
+    if len(message) > 159:
+        payload["message"] = message[:156] + "..."
+
     headers = {
         "Content-Type": "application/json",
         "Accept": "application/json"
     }
 
-    logger.info(f"[EgoSMS] Sending SMS to {clean_phone} via {EGOSMS_API_URL}")
+    logger.info(f"[EgoSMS] Sending SMS ({len(payload['message'])} chars) to {clean_phone} via {EGOSMS_API_URL}")
     try:
         response = requests.post(EGOSMS_API_URL, json=payload, headers=headers, timeout=15)
         logger.info(f"[EgoSMS] Response ({response.status_code}): {response.text}")
@@ -63,10 +67,10 @@ def send_sms(to_phone, message):
 def send_kit_purchase_sms(phone, donor_name, kit_name, size, quantity, amount, reference):
     """
     Helper to send a formatted SMS notification to a kit buyer upon payment confirmation.
-    Includes helplines, representative pickup policy, and size swap rules.
+    Guaranteed <= 159 characters (1 SMS credit).
     """
-    name = donor_name or "Supporter"
-    size_str = f" (Size {size})" if size else ""
+    short_name = (donor_name.split()[0] if donor_name else "Supporter")[:12]
+    size_str = f" ({size})" if size else ""
     qty_str = f"{quantity}x " if quantity and quantity > 1 else ""
 
     try:
@@ -75,30 +79,26 @@ def send_kit_purchase_sms(phone, donor_name, kit_name, size, quantity, amount, r
         formatted_amount = f"UGX {amount}"
 
     message = (
-        f"Dear {name}, payment of {formatted_amount} for {qty_str}{kit_name}{size_str} "
-        f"is confirmed! Ref: {reference}. "
-        f"Pickup: Mengo SS Pavilion. Representative/child pickup allowed with QR code. "
-        f"Size swaps permitted at pavilion (subject to stock). "
-        f"Helplines: +256783279346 / +256784455449. Go Mengo!"
+        f"Mengo SS: Dear {short_name}, payment of {formatted_amount} for {qty_str}Kit{size_str} "
+        f"is confirmed! Ref:{reference}. Pickup:Pavilion (rep/child pickup & swaps ok). "
+        f"Helps:0783279346/0784455449"
     )
     return send_sms(phone, message)
 
 def send_donation_sms(phone, donor_name, amount, reference):
     """
     Helper to send a formatted thanksgiving SMS notification to a donor upon payment confirmation.
+    Guaranteed <= 159 characters (1 SMS credit).
     """
-    name = donor_name or "Valued Supporter"
+    short_name = (donor_name.split()[0] if donor_name else "Supporter")[:12]
     try:
         formatted_amount = f"UGX {int(float(amount)):,}"
     except Exception:
         formatted_amount = f"UGX {amount}"
 
     message = (
-        f"Dear {name}, on behalf of Mengo Senior School, teachers & students, "
-        f"we express our deepest gratitude for your generous gift of {formatted_amount}! "
-        f"Ref: {reference}. "
-        f"Your gift empowers young minds & preserves our 130-yr legacy. "
-        f"May you be abundantly blessed! 'Akwana Akira Ayomba'. "
-        f"Helplines: +256783279346 / +256784455449."
+        f"Mengo SS: Dear {short_name}, thank you for your gift of {formatted_amount}! "
+        f"Ref:{reference}. Your gift empowers young minds. May God bless you! "
+        f"Helps:0783279346/0784455449"
     )
     return send_sms(phone, message)

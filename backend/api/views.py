@@ -457,24 +457,23 @@ class YoIPNView(APIView):
             #     mno_ref          → MTN/Airtel transaction code
             # ════════════════════════════════════════════════════════════
 
+            short_name = (donor_name.split()[0] if donor_name else "Supporter")[:12]
             if is_kit:
-                # SMS for kit / run registration payments
+                # SMS for kit / run registration payments (<= 159 chars)
                 sms = (
-                    f"Dear {donor_name}, your kit payment of {formatted_amount} "
-                    f"for Tambula Mengo Run is confirmed! "
-                    f"Ref: {tx_ref}. "
-                    f"Pickup at Mengo SS Pavilion (rep/child pickup & size swaps allowed). "
-                    f"Helplines: +256783279346 / +256784455449. Thank you!"
+                    f"Mengo SS: Dear {short_name}, payment of {formatted_amount} for Run Kit "
+                    f"is confirmed! Ref:{tx_ref}. Pickup:Pavilion (rep/child pickup & swaps ok). "
+                    f"Helps:0783279346/0784455449"
                 )
             else:
-                # SMS for general donations
+                # SMS for general donations (<= 159 chars)
                 sms = (
-                    f"Dear {donor_name}, on behalf of Mengo Senior School, teachers & students, "
-                    f"we express our deepest gratitude for your gift of {formatted_amount}! "
-                    f"Ref: {tx_ref}. "
-                    f"Your gift empowers young minds. May you be abundantly blessed! 'Akwana Akira Ayomba'. "
-                    f"Helplines: +256783279346 / +256784455449."
+                    f"Mengo SS: Dear {short_name}, thank you for your gift of {formatted_amount}! "
+                    f"Ref:{tx_ref}. Your gift empowers young minds. May God bless you! "
+                    f"Helps:0783279346/0784455449"
                 )
+            if len(sms) > 159:
+                sms = sms[:156] + "..."
 
             # 📱 Trigger EgoSMS Gateway (JSON API) if configured
             try:
