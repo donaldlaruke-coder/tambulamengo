@@ -97,7 +97,7 @@ class InitiatePaymentView(APIView):
         message = data.get("message")
 
         if not amount or int(amount) < 500:
-            return Response({"detail": "Minimum payment is UGX 500"}, status=status.HTTP_400_BAD_ERROR)
+            return Response({"detail": "Minimum payment is UGX 500"}, status=status.HTTP_400_BAD_REQUEST)
 
         is_kit = bool(kit_id)
         ref_prefix = "KIT" if is_kit else "TM"
