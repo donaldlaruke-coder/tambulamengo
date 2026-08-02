@@ -240,14 +240,14 @@ function Index() {
             <span className="lp-kicker">Why we walk</span>
             <h2 className="lp-section-h2">130 years of excellence</h2>
             <p className="lp-why__body">
-              {campaign.data?.story ??
-                "Founded in 1895, Mengo Senior School has nurtured Uganda's doctors, engineers, artists and leaders. This run is our collective 'thank you' — and an investment in the next generation of Ugandans who will change the world."}
+              {campaign.data?.story ||
+                "For 130 years Mengo Senior School has shaped generations of Ugandan leaders. Tambula Mengo is our sponsored walk-and-run to raise funds for the next chapter. Building the Akwana House!"}
             </p>
             <div className="lp-pillars">
               {[
-                { icon: "📚", title: "Learning spaces", desc: "Refurbish classrooms and the library with modern equipment." },
-                { icon: "🎓", title: "Bursaries", desc: "Keep bright students in school regardless of means." },
-                { icon: "🏠", title: "Safer campus", desc: "Water, lighting and boarding upgrades for all students." },
+                { icon: "🍲", title: "Mega Dining Hall", desc: "High-capacity dining levels and modern kitchen infrastructure." },
+                { icon: "🏋️", title: "Fitness & Gym Hub", desc: "Fully equipped indoor gymnasium to support student wellness." },
+                { icon: "💻", title: "Multipurpose IT Hall", desc: "High-capacity, tech-enabled auditorium for school assemblies, exams, and events." },
               ].map((p) => (
                 <div key={p.title} className="lp-pillar">
                   <span className="lp-pillar__icon">{p.icon}</span>
