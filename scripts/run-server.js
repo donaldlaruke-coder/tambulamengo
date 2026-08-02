@@ -19,14 +19,57 @@ function findServerEntry() {
   for (const candidate of primaryCandidates) {
     if (fs.existsSync(candidate)) return candidate;
   }
+
+  // Recursive search inside dist/server and .output/server
+  const searchDirs = [
+    path.resolve(root, "dist/server"),
+    path.resolve(root, ".output/server"),
+    path.resolve(root, "dist"),
+    path.resolve(root, ".output"),
+  ];
+
+  for (const dir of searchDirs) {
+    if (!fs.existsSync(dir)) continue;
+    const found = scanForServerEntry(dir);
+    if (found) return found;
+  }
+
+  return null;
+}
+
+function scanForServerEntry(dir) {
+  try {
+    const list = fs.readdirSync(dir);
+    for (const file of list) {
+      const fullPath = path.join(dir, file);
+      const stat = fs.statSync(fullPath);
+      if (stat.isDirectory()) {
+        if (file === "assets" || file === "public" || file === "client") continue;
+        const sub = scanForServerEntry(fullPath);
+        if (sub) return sub;
+      } else if (file.endsWith(".js") || file.endsWith(".mjs")) {
+        if (file.startsWith("server") || file.startsWith("index") || fullPath.includes("/server/")) {
+          return fullPath;
+        }
+      }
+    }
+  } catch {}
   return null;
 }
 
 const serverEntryPath = findServerEntry();
 
 if (!serverEntryPath) {
-  console.error("[run-server] Error: Could not find valid SSR server entry point in dist/server/ or .output/server/.");
-  console.error("[run-server] Please run 'npm run build' before starting the server.");
+  console.error("[run-server] Error: Could not find valid SSR server entry point in dist/ or .output/.");
+  try {
+    console.error("[run-server] Contents of root dir:", fs.readdirSync(root));
+    if (fs.existsSync(path.resolve(root, "dist"))) {
+      console.error("[run-server] Contents of dist/:", fs.readdirSync(path.resolve(root, "dist")));
+    }
+    if (fs.existsSync(path.resolve(root, ".output"))) {
+      console.error("[run-server] Contents of .output/:", fs.readdirSync(path.resolve(root, ".output")));
+    }
+  } catch {}
   process.exit(1);
 }
 
