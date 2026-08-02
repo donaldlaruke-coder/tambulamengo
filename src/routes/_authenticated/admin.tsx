@@ -6,6 +6,91 @@ import { formatUGX, timeAgo } from "@/lib/format";
 import { getBackendUrl } from "@/lib/backend-url";
 import { PickupStation } from "@/components/tambula/PickupStation";
 
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
+type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
+
+function usePagination(totalItems: number, initialPageSize: PageSize = 20) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PageSize>(initialPageSize);
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  // clamp page when items shrink
+  const safePage = Math.min(page, totalPages);
+  return {
+    page: safePage,
+    pageSize,
+    totalPages,
+    setPage,
+    setPageSize: (s: PageSize) => { setPageSize(s); setPage(1); },
+    resetPage: () => setPage(1),
+    slice: <T extends unknown>(arr: T[]) => arr.slice((safePage - 1) * pageSize, safePage * pageSize),
+  };
+}
+
+function Paginator({
+  page, totalPages, pageSize, onPage, onPageSize, totalItems,
+}: {
+  page: number; totalPages: number; pageSize: PageSize;
+  onPage: (p: number) => void; onPageSize: (s: PageSize) => void;
+  totalItems: number;
+}) {
+  if (totalItems === 0) return null;
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, totalItems);
+
+  // Build page numbers: always show first, last, current ±1, with ellipsis
+  const pages: (number | "…")[] = [];
+  const add = (n: number) => { if (!pages.includes(n)) pages.push(n); };
+  add(1);
+  if (page > 3) pages.push("…");
+  for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) add(i);
+  if (page < totalPages - 2) pages.push("…");
+  if (totalPages > 1) add(totalPages);
+
+  return (
+    <div className="admin-paginator">
+      <span className="admin-paginator__info">
+        {start}–{end} of {totalItems}
+      </span>
+      <div className="admin-paginator__controls">
+        <button
+          className="admin-paginator__btn"
+          disabled={page <= 1}
+          onClick={() => onPage(page - 1)}
+          aria-label="Previous page"
+        >‹</button>
+        {pages.map((p, i) =>
+          p === "…" ? (
+            <span key={`ellipsis-${i}`} className="admin-paginator__ellipsis">…</span>
+          ) : (
+            <button
+              key={p}
+              className={`admin-paginator__btn${p === page ? " admin-paginator__btn--active" : ""}`}
+              onClick={() => onPage(p as number)}
+              aria-current={p === page ? "page" : undefined}
+            >{p}</button>
+          )
+        )}
+        <button
+          className="admin-paginator__btn"
+          disabled={page >= totalPages}
+          onClick={() => onPage(page + 1)}
+          aria-label="Next page"
+        >›</button>
+      </div>
+      <select
+        className="admin-paginator__size"
+        value={pageSize}
+        onChange={(e) => onPageSize(Number(e.target.value) as PageSize)}
+        aria-label="Rows per page"
+      >
+        {PAGE_SIZE_OPTIONS.map((s) => (
+          <option key={s} value={s}>{s} per page</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/_authenticated/admin")({
   ssr: false,
   head: () => ({ meta: [{ title: "Admin — Tambula Mengo" }, { name: "robots", content: "noindex" }] }),
@@ -122,7 +207,7 @@ function Admin() {
       {tab === "overview" && (
         <div className="card-heritage p-6">
           <h2 className="font-serif font-bold text-primary text-lg mb-3">Recent activity</h2>
-          <TxTable rows={(txs.data ?? []).slice(0, 15)} />
+          <TxTable rows={txs.data ?? []} defaultPageSize={20} />
         </div>
       )}
       {tab === "pickup" && <PickupStation />}
@@ -132,7 +217,7 @@ function Admin() {
             <div className="text-sm text-muted-foreground">{confirmed.length} confirmed · {pending.length} pending</div>
             <button onClick={() => downloadCsv(txs.data ?? [])} className="btn-outline !min-h-0 !py-2 !px-3 text-sm">Export CSV</button>
           </div>
-          <TxTable rows={txs.data ?? []} />
+          <TxTable rows={txs.data ?? []} defaultPageSize={20} />
         </div>
       )}
       {tab === "pending" && (
@@ -143,7 +228,7 @@ function Admin() {
               These payments are awaiting confirmation from the payment gateway (MTN MoMo, Airtel Money, Pesapal). They confirm automatically — no manual action required.
             </p>
           </div>
-          <TxTable rows={pending} />
+          <TxTable rows={pending} defaultPageSize={20} />
         </div>
       )}
       {tab === "kits" && (
@@ -165,7 +250,7 @@ function Kpi({ label, value, highlight }: { label: string; value: string; highli
   );
 }
 
-function TxTable({ rows }: { rows: AdminTx[] }) {
+function TxTable({ rows, defaultPageSize = 20 }: { rows: AdminTx[]; defaultPageSize?: PageSize }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -229,6 +314,17 @@ function TxTable({ rows }: { rows: AdminTx[] }) {
 
     return groups;
   }, [filtered]);
+
+  // Pagination — reset to page 1 whenever filters or grouping changes
+  const flatPag = usePagination(filtered.length, defaultPageSize);
+  const groupPag = usePagination(groupedByDate.length, defaultPageSize);
+  useEffect(() => {
+    flatPag.resetPage();
+    groupPag.resetPage();
+  }, [searchQuery, typeFilter, statusFilter, methodFilter, groupByDay]);
+
+  const pagedGroups = groupPag.slice(groupedByDate);
+  const pagedFlat = flatPag.slice(filtered);
 
   return (
     <div className="space-y-4">
@@ -346,33 +442,44 @@ function TxTable({ rows }: { rows: AdminTx[] }) {
           No transactions match the selected search or filter criteria.
         </div>
       ) : groupByDay ? (
-        /* Grouped By Day View */
-        <div className="space-y-6">
-          {groupedByDate.map((group) => (
-            <div key={group.dateLabel} className="card-heritage overflow-hidden">
-              {/* Day Header */}
-              <div className="bg-muted/40 px-4 py-3 border-b border-border flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-serif font-bold text-primary">{group.dateLabel}</span>
-                  <span className="text-xs bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-full">
-                    {group.items.length} transaction{group.items.length > 1 ? "s" : ""}
-                  </span>
+        /* Grouped By Day View — paginated by group */
+        <>
+          <div className="space-y-6">
+            {pagedGroups.map((group) => (
+              <div key={group.dateLabel} className="card-heritage overflow-hidden">
+                <div className="bg-muted/40 px-4 py-3 border-b border-border flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-serif font-bold text-primary">{group.dateLabel}</span>
+                    <span className="text-xs bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-full">
+                      {group.items.length} transaction{group.items.length > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <div className="text-sm font-semibold text-primary">
+                    {formatUGX(group.totalAmount)}
+                  </div>
                 </div>
-                <div className="text-sm font-semibold text-primary">
-                  {formatUGX(group.totalAmount)}
-                </div>
+                <TableContent rows={group.items} />
               </div>
-
-              {/* Table for this day */}
-              <TableContent rows={group.items} />
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+          <Paginator
+            page={groupPag.page} totalPages={groupPag.totalPages}
+            pageSize={groupPag.pageSize} totalItems={groupedByDate.length}
+            onPage={groupPag.setPage} onPageSize={groupPag.setPageSize}
+          />
+        </>
       ) : (
-        /* Flat List View */
-        <div className="card-heritage overflow-hidden">
-          <TableContent rows={filtered} />
-        </div>
+        /* Flat List View — paginated by row */
+        <>
+          <div className="card-heritage overflow-hidden">
+            <TableContent rows={pagedFlat} />
+          </div>
+          <Paginator
+            page={flatPag.page} totalPages={flatPag.totalPages}
+            pageSize={flatPag.pageSize} totalItems={filtered.length}
+            onPage={flatPag.setPage} onPageSize={flatPag.setPageSize}
+          />
+        </>
       )}
     </div>
   );

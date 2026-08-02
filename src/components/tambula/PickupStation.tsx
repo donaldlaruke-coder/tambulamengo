@@ -35,6 +35,9 @@ export function PickupStation() {
   const [scanResult, setScanResult] = useState<any>(null);
   const [loadingScan, setLoadingScan] = useState(false);
 
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+
   const recent = useQuery({
     queryKey: ["pickup-recent"],
     queryFn: async () => {
@@ -43,11 +46,14 @@ export function PickupStation() {
       });
       if (!res.ok) return [];
       const data = await res.json();
-      // Return confirmed kit orders that have been collected
-      return (data as any[]).filter((t: any) => t.kit_collected).slice(0, 20);
+      return (data as any[]).filter((t: any) => t.kit_collected);
     },
     refetchInterval: 30_000,
   });
+
+  const allPickups = recent.data ?? [];
+  const totalPages = Math.max(1, Math.ceil(allPickups.length / pageSize));
+  const pagedPickups = allPickups.slice((page - 1) * pageSize, page * pageSize);
 
   async function handleScanSubmit(refToSearch: string) {
     if (!refToSearch.trim()) return;
@@ -181,26 +187,50 @@ export function PickupStation() {
 
       <div className="card-heritage p-5">
         <h3 className="font-serif font-bold text-primary mb-3">Recent pickups</h3>
-        {(recent.data ?? []).length === 0 ? (
+        {allPickups.length === 0 ? (
           <p className="text-sm text-muted-foreground">No pickups yet.</p>
         ) : (
-          <ul className="divide-y divide-border text-sm">
-            {(recent.data ?? []).map((r: any) => (
-              <li key={r.id} className="py-2 flex items-center justify-between gap-3">
-                <div>
-                  <div className="font-semibold">
-                    {r.is_anonymous ? "Anonymous" : r.donor_name || r.donor_display_name || r.donor_phone || "—"}
+          <>
+            <ul className="divide-y divide-border text-sm">
+              {pagedPickups.map((r: any) => (
+                <li key={r.id} className="py-2 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="font-semibold">
+                      {r.is_anonymous ? "Anonymous" : r.donor_name || r.donor_display_name || r.donor_phone || "—"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {r.internal_reference} · {formatUGX(r.amount)}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {r.internal_reference} · {formatUGX(r.amount)}
+                  <div className="text-xs text-muted-foreground whitespace-nowrap">
+                    {r.kit_collected_at ? timeAgo(r.kit_collected_at) : "—"}
                   </div>
+                </li>
+              ))}
+            </ul>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-3 border-t border-border text-xs text-muted-foreground">
+                <span>Page {page} of {totalPages}</span>
+                <div className="flex gap-1">
+                  <button
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => p - 1)}
+                    className="btn-outline !min-h-0 !py-1 !px-2.5 text-xs disabled:opacity-40"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                    className="btn-outline !min-h-0 !py-1 !px-2.5 text-xs disabled:opacity-40"
+                  >
+                    Next
+                  </button>
                 </div>
-                <div className="text-xs text-muted-foreground whitespace-nowrap">
-                  {r.kit_collected_at ? timeAgo(r.kit_collected_at) : "—"}
-                </div>
-              </li>
-            ))}
-          </ul>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

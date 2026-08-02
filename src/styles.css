@@ -1433,4 +1433,77 @@
   color: rgba(255,255,255,0.5);
 }
 
+/* ══════════════════════════════════════════════════════════
+   ADMIN PAGINATOR STYLES
+══════════════════════════════════════════════════════════ */
 
+.admin-paginator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.25rem 0.25rem;
+  font-size: 0.82rem;
+  color: var(--color-muted-foreground);
+  flex-wrap: wrap;
+}
+
+.admin-paginator__info {
+  font-weight: 500;
+}
+
+.admin-paginator__controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.admin-paginator__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.4rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-paginator__btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: color-mix(in oklab, var(--color-primary) 5%, transparent);
+}
+
+.admin-paginator__btn--active {
+  background: var(--color-primary) !important;
+  color: white !important;
+  border-color: var(--color-primary) !important;
+  font-weight: 600;
+}
+
+.admin-paginator__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.admin-paginator__ellipsis {
+  padding: 0 0.25rem;
+  color: var(--color-muted-foreground);
+}
+
+.admin-paginator__size {
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+  color: var(--color-foreground);
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.78rem;
+  outline: none;
+}
