@@ -46,7 +46,6 @@ services:
     volumes:
       - db-data:/app/db-data
     env_file:
-      - ./backend/.env
       - .env
     environment:
       - DEBUG=False

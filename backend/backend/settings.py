@@ -23,9 +23,11 @@ env = environ.Env(
     PESAPAL_SANDBOX=(bool, True),
 )
 
-# Read .env file from both backend directory and root directory
-environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
-environ.Env.read_env(os.path.join(BASE_DIR.parent, '.env'))
+# Read .env file safely from either backend directory or root directory
+if os.path.exists(os.path.join(BASE_DIR, '.env')):
+    environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+if os.path.exists(os.path.join(BASE_DIR.parent, '.env')):
+    environ.Env.read_env(os.path.join(BASE_DIR.parent, '.env'))
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-=8u7c1hz#-k5-5ja#yhox#1v#(z4*!h1@^q55==(l-jvppvdc=')
