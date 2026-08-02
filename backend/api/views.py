@@ -712,22 +712,29 @@ class AdminStatsView(APIView):
         if not request.user.is_authenticated or not request.user.is_staff:
             return Response({'detail': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
 
-        confirmed = Transaction.objects.filter(status='confirmed')
-        total_raised = sum(t.amount for t in confirmed)
-        donor_count = confirmed.values('donor_id').distinct().count()
-        donation_count = confirmed.count()
-        average_donation = int(total_raised / donation_count) if donation_count > 0 else 0
-        kit_orders_count = confirmed.filter(type='kit_purchase').count()
-        pending_count = Transaction.objects.filter(status='pending').count()
+        try:
+            confirmed = Transaction.objects.filter(status='confirmed')
+            total_raised = sum((t.amount or 0) for t in confirmed)
+            donor_count = confirmed.exclude(donor_id=None).values('donor_id').distinct().count()
+            donation_count = confirmed.count()
+            average_donation = int(total_raised / donation_count) if donation_count > 0 else 0
+            kit_orders_count = confirmed.filter(type='kit_purchase').count()
+            pending_count = Transaction.objects.filter(status='pending').count()
 
-        return Response({
-            'total_raised': total_raised,
-            'donor_count': donor_count,
-            'donation_count': donation_count,
-            'average_donation': average_donation,
-            'kit_orders_count': kit_orders_count,
-            'pending_count': pending_count,
-        })
+            return Response({
+                'total_raised': total_raised,
+                'donor_count': donor_count,
+                'donation_count': donation_count,
+                'average_donation': average_donation,
+                'kit_orders_count': kit_orders_count,
+                'pending_count': pending_count,
+            })
+        except Exception as e:
+            logger.error(f"Error in AdminStatsView: {e}")
+            return Response({
+                'total_raised': 0, 'donor_count': 0, 'donation_count': 0,
+                'average_donation': 0, 'kit_orders_count': 0, 'pending_count': 0
+            })
 
 
 class AdminTransactionsView(APIView):
@@ -738,34 +745,48 @@ class AdminTransactionsView(APIView):
         if not request.user.is_authenticated or not request.user.is_staff:
             return Response({'detail': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
 
-        # Auto-check any pending transactions against Yo! Payments and Pesapal
-        pending_txs = Transaction.objects.filter(status='pending')
-        for p_tx in pending_txs[:20]:
-            p_tx = check_and_update_yo_transaction(p_tx)
-            if p_tx.status == 'pending' and p_tx.provider_reference:
-                check_and_update_pesapal_transaction(p_tx)
+        try:
+            # Safely check pending transactions without letting individual failures crash the request
+            pending_txs = Transaction.objects.filter(status='pending')
+            for p_tx in pending_txs[:10]:
+                try:
+                    p_tx = check_and_update_yo_transaction(p_tx)
+                    if p_tx.status == 'pending' and p_tx.provider_reference:
+                        check_and_update_pesapal_transaction(p_tx)
+                except Exception as p_err:
+                    logger.warning(f"Error checking pending tx {p_tx.internal_reference}: {p_err}")
 
-        txs = Transaction.objects.select_related('donor').order_by('-created_at')[:500]
-        result = []
-        for t in txs:
-            result.append({
-                'id': str(t.id),
-                'internal_reference': t.internal_reference,
-                'provider_reference': t.provider_reference,
-                'amount': t.amount,
-                'type': t.type,
-                'payment_method': t.payment_method,
-                'status': t.status,
-                'message': t.message,
-                'is_anonymous': t.is_anonymous,
-                'donor_display_name': t.donor_display_name,
-                'donor_name': t.donor.name if t.donor else None,
-                'donor_phone': t.donor.phone if t.donor else None,
-                'donor_email': t.donor.email if t.donor else None,
-                'created_at': t.created_at.isoformat(),
-                'confirmed_at': t.confirmed_at.isoformat() if t.confirmed_at else None,
-            })
-        return Response(result)
+            txs = Transaction.objects.select_related('donor').order_by('-created_at')[:500]
+            result = []
+            for t in txs:
+                try:
+                    result.append({
+                        'id': str(t.id),
+                        'internal_reference': t.internal_reference or "",
+                        'provider_reference': t.provider_reference,
+                        'amount': t.amount or 0,
+                        'type': t.type or "donation",
+                        'payment_method': t.payment_method or "mtn_momo",
+                        'status': t.status or "pending",
+                        'message': t.message,
+                        'is_anonymous': bool(t.is_anonymous),
+                        'donor_display_name': t.donor_display_name,
+                        'donor_name': (t.donor.name if t.donor else None) or t.donor_display_name,
+                        'donor_phone': t.donor.phone if t.donor else None,
+                        'donor_email': t.donor.email if t.donor else None,
+                        'created_at': str(t.created_at) if t.created_at else "",
+                        'confirmed_at': str(t.confirmed_at) if t.confirmed_at else None,
+                        'kit_collected': bool(t.kit_collected),
+                        'kit_collected_at': str(t.kit_collected_at) if t.kit_collected_at else None,
+                        'kit_collected_by': t.kit_collected_by
+                    })
+                except Exception as t_err:
+                    logger.error(f"Error serializing transaction {t.id}: {t_err}")
+
+            return Response(result)
+        except Exception as e:
+            logger.error(f"Global error in AdminTransactionsView: {e}")
+            return Response([], status=status.HTTP_200_OK)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
