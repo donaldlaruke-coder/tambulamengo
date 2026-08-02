@@ -1,9 +1,10 @@
 # Step 1: Build the application
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
+COPY scripts ./scripts
 RUN npm install --legacy-peer-deps
 
 COPY . .
@@ -25,7 +26,7 @@ ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 RUN NITRO_PRESET=node-server npm run build
 
 # Step 2: Serve the application
-FROM node:20-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
