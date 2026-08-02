@@ -46,7 +46,6 @@ function DonatePage() {
   const [amount, setAmount] = useState<number>(search.amount ?? 25000);
   const [customOpen, setCustomOpen] = useState(false);
   const [name, setName] = useState("");
-  const [showName, setShowName] = useState(false);
   const [anonymous, setAnonymous] = useState(false);
   const [message, setMessage] = useState("");
   const [paymentMode, setPaymentMode] = useState<"mobile" | "card">("mobile");
@@ -462,55 +461,45 @@ function DonatePage() {
             </div>
           </div>
 
-          {isKitFlow || showName ? (
-            <div className="card-heritage p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold mb-1">
-                  Your name{" "}
-                  {isKitFlow ? (
-                    <span className="text-destructive font-semibold">(required)</span>
-                  ) : (
-                    <span className="text-muted-foreground font-normal">(optional)</span>
-                  )}
-                </label>
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={!isKitFlow && anonymous}
-                  placeholder="e.g. Jane N."
-                  className="w-full rounded-lg border border-input bg-background px-4 py-3 disabled:opacity-50"
-                  required={isKitFlow}
-                />
-              </div>
-              {!isKitFlow && (
-                <>
-                  <div>
-                    <label className="block text-sm font-semibold mb-1">Message <span className="text-muted-foreground font-normal">(optional)</span></label>
-                    <textarea
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      maxLength={200}
-                      rows={2}
-                      placeholder="Say something to Mengo…"
-                      className="w-full rounded-lg border border-input bg-background px-4 py-3"
-                    />
-                  </div>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" checked={anonymous} onChange={(e) => setAnonymous(e.target.checked)} className="h-5 w-5 accent-[oklch(0.38_0.13_20)]" />
-                    <span className="text-sm">Give anonymously</span>
-                  </label>
-                </>
-              )}
+          <div className="card-heritage p-5 space-y-4">
+            <div>
+              <label className="block text-sm font-semibold mb-1">
+                Your name{" "}
+                {isKitFlow ? (
+                  <span className="text-destructive font-semibold">(required)</span>
+                ) : (
+                  <span className="text-muted-foreground font-normal">(optional)</span>
+                )}
+              </label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={!isKitFlow && anonymous}
+                placeholder="e.g. Jane N."
+                className="w-full rounded-lg border border-input bg-background px-4 py-3 disabled:opacity-50"
+                required={isKitFlow}
+              />
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowName(true)}
-              className="text-sm text-primary underline underline-offset-2"
-            >
-              + Add your name or a message
-            </button>
-          )}
+            {!isKitFlow && (
+              <>
+                <div>
+                  <label className="block text-sm font-semibold mb-1">Message <span className="text-muted-foreground font-normal">(optional)</span></label>
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    maxLength={200}
+                    rows={2}
+                    placeholder="Say something to Mengo…"
+                    className="w-full rounded-lg border border-input bg-background px-4 py-3"
+                  />
+                </div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" checked={anonymous} onChange={(e) => setAnonymous(e.target.checked)} className="h-5 w-5 accent-[oklch(0.38_0.13_20)]" />
+                  <span className="text-sm">Give anonymously</span>
+                </label>
+              </>
+            )}
+          </div>
 
           <button type="submit" disabled={busy} className="btn-primary w-full text-lg py-4">
             {busy ? "Please wait…" : `Pay ${formatUGX(amount)}`}
