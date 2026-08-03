@@ -77,10 +77,12 @@ export function detectUgNetwork(raw: string): "mtn_momo" | "airtel_money" | null
   if (!local) return null;
   const p = local.slice(0, 3);
 
-  if (["077", "078", "076", "079", "039", "031"].includes(p)) {
+  // MTN Uganda: 077, 078, 076, 039, 031
+  if (["077", "078", "076", "039", "031"].includes(p)) {
     return "mtn_momo";
   }
-  if (["070", "075", "074", "072", "073", "071"].includes(p)) {
+  // Airtel Uganda: 070, 075, 074, 079, 072, 073, 071, 020
+  if (["070", "075", "074", "079", "072", "073", "071", "020"].includes(p)) {
     return "airtel_money";
   }
 

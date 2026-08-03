@@ -115,20 +115,25 @@ class LiveDonationsListView(APIView):
             return Response([])
 
 def detect_uganda_payment_method(phone, payment_mode=None):
-    if payment_mode in ['bank', 'card', 'airtel_money', 'mtn_momo']:
+    if payment_mode in ['bank', 'card']:
         return payment_mode
 
     clean_p = str(phone or "").replace("+", "").replace(" ", "").replace("-", "").strip()
     if clean_p.startswith("0"):
         clean_p = "256" + clean_p[1:]
 
-    # Airtel Uganda prefixes: 070, 074, 075, 079 (25670, 25674, 25675, 25679)
-    if any(clean_p.startswith(prefix) for prefix in ["25670", "25674", "25675", "25679"]):
+    # Airtel Uganda prefixes: 070, 075, 074, 079, 072, 073, 071, 020 (25670, 25675, 25674, 25679, 25672, 25673, 25671, 25620)
+    airtel_prefixes = ["25670", "25675", "25674", "25679", "25672", "25673", "25671", "25620"]
+    if any(clean_p.startswith(prefix) for prefix in airtel_prefixes):
         return "airtel_money"
 
-    # MTN Uganda prefixes: 077, 078, 076, 039 (25677, 25678, 25676, 25639)
-    if any(clean_p.startswith(prefix) for prefix in ["25677", "25678", "25676", "25639"]):
+    # MTN Uganda prefixes: 077, 078, 076, 039, 031 (25677, 25678, 25676, 25639, 25631)
+    mtn_prefixes = ["25677", "25678", "25676", "25639", "25631"]
+    if any(clean_p.startswith(prefix) for prefix in mtn_prefixes):
         return "mtn_momo"
+
+    if payment_mode in ['airtel_money', 'mtn_momo']:
+        return payment_mode
 
     return "mtn_momo"
 
@@ -384,6 +389,9 @@ def check_and_update_yo_transaction(tx):
                 tx.confirmed_at = timezone.now()
             if status_res.get("momo_ref") and not tx.provider_reference:
                 tx.provider_reference = status_res.get("momo_ref")
+            target_p = (tx.donor.phone if tx.donor else None) or tx.donor_display_name
+            if target_p:
+                tx.payment_method = detect_uganda_payment_method(target_p, tx.payment_method)
             tx.save()
             logger.info(f"Transaction {tx.internal_reference} auto-confirmed via Yo! Payments check.")
             trigger_egosms_notification(tx)
@@ -499,6 +507,9 @@ class YoIPNView(APIView):
             tx.status = 'confirmed'
             if not tx.confirmed_at:
                 tx.confirmed_at = timezone.now()
+            target_p = (tx.donor.phone if tx.donor else None) or tx.donor_display_name
+            if target_p:
+                tx.payment_method = detect_uganda_payment_method(target_p, tx.payment_method)
             tx.save()
             logger.info(f"[Yo! IPN] ✅ {external_ref} CONFIRMED. MNO ref: {mno_ref}")
 

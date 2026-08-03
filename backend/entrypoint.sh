@@ -7,8 +7,8 @@ python manage.py migrate --noinput
 echo "🔄 Retroactively updating historical transaction payment methods..."
 python manage.py shell -c "
 from api.models import Transaction
-airtel_prefixes = ['25670', '25674', '25675', '25679', '070', '074', '075', '079']
-mtn_prefixes = ['25677', '25678', '25676', '25639', '077', '078', '076', '039']
+airtel_prefixes = ['25670', '25675', '25674', '25679', '25672', '25673', '25671', '25620', '070', '075', '074', '079', '072', '073', '071', '020']
+mtn_prefixes = ['25677', '25678', '25676', '25639', '25631', '077', '078', '076', '039', '031']
 count = 0
 for tx in Transaction.objects.all():
     p = (tx.donor.phone if tx.donor else None) or tx.donor_display_name or ''
