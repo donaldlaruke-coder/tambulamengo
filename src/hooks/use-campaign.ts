@@ -38,7 +38,7 @@ export function useCampaign() {
   const q = useQuery({
     queryKey: ["campaign"],
     queryFn: async (): Promise<CampaignSettings> => {
-      if (import.meta.env.VITE_USE_DJANGO === "true") {
+      if (import.meta.env.VITE_USE_DJANGO !== "false") {
         const url = `${getBackendUrl()}/api/campaign/`;
         const res = await fetch(url);
         if (!res.ok) throw new Error("Failed to fetch campaign settings");
@@ -54,7 +54,7 @@ export function useCampaign() {
     },
   });
   useEffect(() => {
-    if (import.meta.env.VITE_USE_DJANGO === "true") return;
+    if (import.meta.env.VITE_USE_DJANGO !== "false") return;
     const channel = supabase
       .channel("rt:campaign")
       .on("postgres_changes", { event: "*", schema: "public", table: "campaign_settings" }, () => {
@@ -73,7 +73,7 @@ export function useCampaignStats() {
   const q = useQuery({
     queryKey: ["campaign-stats"],
     queryFn: async (): Promise<CampaignStats> => {
-      if (import.meta.env.VITE_USE_DJANGO === "true") {
+      if (import.meta.env.VITE_USE_DJANGO !== "false") {
         const url = `${getBackendUrl()}/api/stats/`;
         const res = await fetch(url);
         if (!res.ok) throw new Error("Failed to fetch campaign stats");
@@ -85,7 +85,7 @@ export function useCampaignStats() {
     },
   });
   useEffect(() => {
-    if (import.meta.env.VITE_USE_DJANGO === "true") return;
+    if (import.meta.env.VITE_USE_DJANGO !== "false") return;
     const channel = supabase
       .channel("rt:tx-stats")
       .on(
@@ -107,7 +107,7 @@ export function useLiveDonations(limit = 25, typeFilter?: "donation" | "kit_purc
   const q = useQuery({
     queryKey: key,
     queryFn: async (): Promise<PublicTransaction[]> => {
-      if (import.meta.env.VITE_USE_DJANGO === "true") {
+      if (import.meta.env.VITE_USE_DJANGO !== "false") {
         const url = `${getBackendUrl()}/api/donations/`;
         const res = await fetch(url);
         if (!res.ok) throw new Error("Failed to fetch live donations");

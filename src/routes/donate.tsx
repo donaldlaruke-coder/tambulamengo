@@ -237,7 +237,7 @@ function DonatePage() {
     }
     setBusy(true);
     try {
-      if (import.meta.env.VITE_USE_DJANGO === "true") {
+      if (import.meta.env.VITE_USE_DJANGO !== "false") {
         const response = await fetch(`${getBackendUrl()}/api/payments/initiate/`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -19,6 +19,6 @@ export function getBackendUrl(): string {
       "http://backend:8000"
     );
   }
-  // Client-side (browser): use VITE_BACKEND_URL if explicitly set, else default to http://localhost:8000
-  return import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+  // Client-side (browser): use VITE_BACKEND_URL if explicitly set, else default to live server https://api.tambulamengo.work.gd
+  return import.meta.env.VITE_BACKEND_URL || "https://api.tambulamengo.work.gd";
 }

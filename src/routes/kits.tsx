@@ -30,7 +30,7 @@ function KitsPage() {
   const { data: kits, isLoading } = useQuery({
     queryKey: ["kits", "active"],
     queryFn: async () => {
-      if (import.meta.env.VITE_USE_DJANGO === "true") {
+      if (import.meta.env.VITE_USE_DJANGO !== "false") {
         const url = `${getBackendUrl()}/api/kits/`;
         const res = await fetch(url);
         if (!res.ok) throw new Error("Failed to fetch kits");
