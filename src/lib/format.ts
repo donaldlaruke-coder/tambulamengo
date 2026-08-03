@@ -33,9 +33,10 @@ export function initials(name: string | null | undefined): string {
     .toUpperCase();
 }
 
-export function displayDonorName(t: { donor_display_name: string | null; is_anonymous: boolean }): string {
+export function displayDonorName(t: { donor_display_name?: string | null; donor_name?: string | null; is_anonymous: boolean }): string {
   if (t.is_anonymous) return "Anonymous friend";
-  return t.donor_display_name?.trim() || "A well-wisher";
+  const name = (t.donor_display_name || t.donor_name || "").trim();
+  return name || "Supporter";
 }
 
 export function generateReference(prefix: string): string {

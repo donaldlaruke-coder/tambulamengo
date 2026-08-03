@@ -92,10 +92,13 @@ class LiveDonationsListView(APIView):
 
     def get(self, request):
         try:
-            txs = Transaction.objects.filter(status='confirmed').order_by('-created_at')[:25]
+            txs = Transaction.objects.filter(status='confirmed').order_by('-confirmed_at', '-created_at')[:25]
             result = []
             for t in txs:
-                donor_name = (t.donor.name if t.donor else None) or t.donor_display_name or ("Anonymous" if t.is_anonymous else "Supporter")
+                real_name = (t.donor.name if t.donor else None) or t.donor_display_name
+                if not real_name or not str(real_name).strip():
+                    real_name = "Supporter"
+
                 result.append({
                     "id": str(t.id),
                     "amount": t.amount or 0,
@@ -104,7 +107,8 @@ class LiveDonationsListView(APIView):
                     "payment_method": t.payment_method,
                     "status": t.status,
                     "is_anonymous": t.is_anonymous,
-                    "donor_name": "Anonymous" if t.is_anonymous else donor_name,
+                    "donor_display_name": "Anonymous" if t.is_anonymous else real_name,
+                    "donor_name": "Anonymous" if t.is_anonymous else real_name,
                     "message": t.message,
                     "created_at": str(t.created_at),
                     "confirmed_at": str(t.confirmed_at) if t.confirmed_at else str(t.created_at)

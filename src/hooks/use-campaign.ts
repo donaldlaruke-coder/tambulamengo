@@ -72,6 +72,7 @@ export function useCampaignStats() {
   const qc = useQueryClient();
   const q = useQuery({
     queryKey: ["campaign-stats"],
+    refetchInterval: 3000,
     queryFn: async (): Promise<CampaignStats> => {
       if (import.meta.env.VITE_USE_DJANGO !== "false") {
         const url = `${getBackendUrl()}/api/stats/`;
@@ -106,6 +107,7 @@ export function useLiveDonations(limit = 25, typeFilter?: "donation" | "kit_purc
   const key = ["live-donations", limit, typeFilter ?? "all"];
   const q = useQuery({
     queryKey: key,
+    refetchInterval: 3000,
     queryFn: async (): Promise<PublicTransaction[]> => {
       if (import.meta.env.VITE_USE_DJANGO !== "false") {
         const url = `${getBackendUrl()}/api/donations/`;
