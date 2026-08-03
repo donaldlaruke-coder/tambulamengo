@@ -64,13 +64,20 @@ def send_sms(to_phone, message):
         logger.error(f"[EgoSMS] Failed to send SMS to {clean_phone}: {e}")
         return {"success": False, "error": str(e)}
 
+def format_donor_first_name(donor_name):
+    if not donor_name or not str(donor_name).strip():
+        return "Supporter"
+    clean_n = str(donor_name).strip()
+    first_word = clean_n.split()[0].title()
+    return first_word[:12]
+
 def send_kit_purchase_sms(phone, donor_name, kit_name, size, quantity, amount, reference):
     """
     Helper to send a formatted SMS notification to a kit buyer upon payment confirmation.
     Handles single or multiple kits dynamically. Specifies School Main Gate pickup.
     Guaranteed <= 159 characters (1 SMS credit).
     """
-    short_name = (donor_name.split()[0] if donor_name else "Supporter")[:10]
+    short_name = format_donor_first_name(donor_name)
     size_str = f" ({size})" if size else ""
 
     try:
@@ -100,7 +107,7 @@ def send_donation_sms(phone, donor_name, amount, reference):
     Helper to send a formatted thanksgiving SMS notification to a donor upon payment confirmation.
     Guaranteed <= 159 characters (1 SMS credit).
     """
-    short_name = (donor_name.split()[0] if donor_name else "Supporter")[:12]
+    short_name = format_donor_first_name(donor_name)
     try:
         formatted_amount = f"UGX {int(float(amount)):,}"
     except Exception:
