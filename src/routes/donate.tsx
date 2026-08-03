@@ -185,10 +185,10 @@ function DonatePage() {
 
           ctx.fillStyle = "#DC2626";
           ctx.font = "bold 13px sans-serif";
-          ctx.fillText("⚠️ Present this QR Pass at Pavilion for Kit Pickup", 300, 660);
+          ctx.fillText("⚠️ Present this QR Pass or Ref Code at School Main Gate", 300, 660);
           ctx.fillStyle = "#64748B";
           ctx.font = "11px sans-serif";
-          ctx.fillText("Valid for 1-time kit collection. Marked as used upon scanning.", 300, 685);
+          ctx.fillText("Student or representative can collect using this QR Pass / Ref Code.", 300, 685);
 
           const link = document.createElement("a");
           link.download = `TambulaMengo_KitPass_${reference}.png`;
