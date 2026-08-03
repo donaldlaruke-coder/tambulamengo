@@ -675,9 +675,12 @@ function DonatePage() {
               </p>
               <ol className="list-decimal list-inside space-y-1 text-muted-foreground leading-relaxed">
                 <li>Enter your <strong>MTN MoMo or Airtel Money PIN</strong> on the prompt screen.</li>
-                <li>Approve the payment to <strong>Mengo Senior School</strong>.</li>
+                <li>Approve the payment to <strong>Yo! Uganda Ltd</strong>.</li>
                 <li>This screen will automatically update once approved.</li>
               </ol>
+              <p className="text-[11px] text-amber-800/90 dark:text-amber-200/90 pt-1.5 border-t border-amber-500/20 font-medium">
+                <em>Note: Additional taxes or network charges may apply.</em>
+              </p>
             </div>
             <div className="mt-6 flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground bg-muted/50 py-2.5 px-4 rounded-full border border-border">
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
