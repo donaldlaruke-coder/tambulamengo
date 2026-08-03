@@ -242,7 +242,7 @@ class InitiatePaymentView(APIView):
                     narrative = f"Tambula Mengo Run Kit ({size})" if is_kit else "Tambula Mengo Donation"
                     target_phone = clean_phone or (donor.phone if donor else "0770000000")
 
-                    SURCHARGE_PERCENTAGE = 10.12
+                    SURCHARGE_PERCENTAGE = 11.67
                     surcharged_amount = int(round(float(amount) * (1 + SURCHARGE_PERCENTAGE / 100)))
 
                     yo_res = yo_payments.deposit_funds(
