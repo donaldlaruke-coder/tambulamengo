@@ -118,6 +118,91 @@ class LiveDonationsListView(APIView):
             logger.error(f"Error in LiveDonationsListView: {e}")
             return Response([])
 
+class LeaderboardView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            campaign = CampaignSettings.objects.filter(id=1).first()
+            show_amounts = campaign.show_leaderboard_amounts if (campaign and campaign.show_leaderboard_amounts is not None) else True
+
+            # Get all confirmed transactions ordered chronologically to respect first donation info
+            txs = Transaction.objects.filter(status='confirmed').select_related('donor').order_by('created_at')
+
+            donors_map = {}
+
+            for t in txs:
+                # Group primarily by phone number
+                raw_phone = (t.donor.phone if t.donor else None) or ""
+                clean_phone = str(raw_phone).replace("+", "").replace(" ", "").replace("-", "").strip()
+                if clean_phone.startswith("0"):
+                    clean_phone = "256" + clean_phone[1:]
+
+                if not clean_phone and t.donor_display_name:
+                    clean_disp = str(t.donor_display_name).replace("+", "").replace(" ", "").replace("-", "").strip()
+                    if clean_disp.isdigit() and len(clean_disp) >= 9:
+                        clean_phone = ("256" + clean_disp[1:]) if clean_disp.startswith("0") else clean_disp
+
+                if clean_phone:
+                    group_key = f"phone:{clean_phone}"
+                elif t.donor_id:
+                    group_key = f"donor:{t.donor_id}"
+                else:
+                    group_key = f"tx:{t.id}"
+
+                if group_key not in donors_map:
+                    is_anon = bool(t.is_anonymous)
+                    name_candidate = (t.donor.name if t.donor else None) or t.donor_display_name
+                    if is_anon or not name_candidate or not str(name_candidate).strip():
+                        display_name = "Anonymous Friend"
+                    else:
+                        display_name = str(name_candidate).strip().title()
+
+                    donors_map[group_key] = {
+                        "group_key": group_key,
+                        "donor_name": display_name,
+                        "is_anonymous": is_anon,
+                        "total_amount": 0,
+                        "donations_count": 0,
+                        "first_donated_at": str(t.created_at),
+                        "last_donated_at": str(t.confirmed_at or t.created_at)
+                    }
+
+                donors_map[group_key]["total_amount"] += (t.amount or 0)
+                donors_map[group_key]["donations_count"] += 1
+                donors_map[group_key]["last_donated_at"] = str(t.confirmed_at or t.created_at)
+
+            # Sort: Primary = Total Amount Descending, Secondary = Alphabetical Name Ascending (case-insensitive)
+            ranked_list = list(donors_map.values())
+            ranked_list.sort(key=lambda d: (-d["total_amount"], d["donor_name"].lower()))
+
+            results = []
+            for idx, item in enumerate(ranked_list, start=1):
+                tier = "gold" if idx == 1 else ("silver" if idx == 2 else ("bronze" if idx == 3 else "standard"))
+                results.append({
+                    "rank": idx,
+                    "tier": tier,
+                    "donor_name": item["donor_name"],
+                    "is_anonymous": item["is_anonymous"],
+                    "total_amount": item["total_amount"] if show_amounts else None,
+                    "donations_count": item["donations_count"],
+                    "first_donated_at": item["first_donated_at"],
+                    "last_donated_at": item["last_donated_at"]
+                })
+
+            return Response({
+                "show_amounts": show_amounts,
+                "total_donors": len(results),
+                "leaderboard": results
+            })
+        except Exception as e:
+            logger.error(f"Error in LeaderboardView: {e}", exc_info=True)
+            return Response({
+                "show_amounts": True,
+                "total_donors": 0,
+                "leaderboard": []
+            })
+
 def detect_uganda_payment_method(phone, payment_mode=None):
     if payment_mode in ['bank', 'card']:
         return payment_mode
@@ -918,6 +1003,7 @@ class AdminCampaignView(APIView):
             'campaign_name': campaign.campaign_name, 'tagline': campaign.tagline,
             'story': campaign.story, 'goal_amount': campaign.goal_amount,
             'offline_amount': campaign.offline_amount or 0,
+            'show_leaderboard_amounts': campaign.show_leaderboard_amounts if campaign.show_leaderboard_amounts is not None else True,
             'event_date': str(campaign.event_date), 'event_details': campaign.event_details,
             'bank_name': campaign.bank_name, 'bank_account_name': campaign.bank_account_name,
             'bank_account_number': campaign.bank_account_number,
@@ -934,6 +1020,9 @@ class AdminCampaignView(APIView):
                        'bank_name', 'bank_account_name', 'bank_account_number']:
             if field in d:
                 setattr(campaign, field, d[field])
+
+        if 'show_leaderboard_amounts' in d:
+            campaign.show_leaderboard_amounts = bool(d['show_leaderboard_amounts'])
 
         if 'goal_amount' in d:
             try:

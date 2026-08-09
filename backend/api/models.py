@@ -13,6 +13,7 @@ class CampaignSettings(models.Model):
     bank_name = models.CharField(max_length=255, blank=True, null=True)
     bank_account_name = models.CharField(max_length=255, blank=True, null=True)
     bank_account_number = models.CharField(max_length=255, blank=True, null=True)
+    show_leaderboard_amounts = models.BooleanField(default=True, help_text='Show total amount donated on the public donor leaderboard')
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

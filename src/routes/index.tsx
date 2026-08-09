@@ -344,12 +344,17 @@ function Index() {
       {/* ════════════════════════════════ LIVE FEED ══ */}
       <section className="lp-feed">
         <div className="container-page">
-          <header className="lp-feed__header">
+          <header className="lp-feed__header flex flex-wrap items-center justify-between gap-3">
             <div>
               <span className="lp-kicker">Real-time</span>
               <h2 className="lp-section-h2">Recent gifts</h2>
             </div>
-            {/* No "see all" — capped at 10 */}
+            <Link
+              to="/leaderboard"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-amber-400/15 hover:bg-amber-400/25 border border-amber-500/30 text-amber-900 dark:text-amber-300 font-bold text-xs sm:text-sm transition-all shadow-sm"
+            >
+              🏆 Donor Leaderboard →
+            </Link>
           </header>
           <div className="lp-feed__card">
             {donations.data?.length ? (

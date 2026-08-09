@@ -656,12 +656,13 @@ function CampaignAdmin() {
     },
   });
 
-  const [form, setForm] = useState<Record<string, string>>({});
+  const [form, setForm] = useState<Record<string, any>>({});
   useEffect(() => {
     if (data) setForm({
       campaign_name: data.campaign_name ?? "", tagline: data.tagline ?? "", story: data.story ?? "",
       goal_amount: String(data.goal_amount ?? 0),
       offline_amount: String(data.offline_amount ?? 0),
+      show_leaderboard_amounts: data.show_leaderboard_amounts !== false,
       event_date: data.event_date ?? "",
       event_details: data.event_details ?? "",
       bank_name: data.bank_name ?? "", bank_account_name: data.bank_account_name ?? "", bank_account_number: data.bank_account_number ?? "",
@@ -684,6 +685,7 @@ function CampaignAdmin() {
       qc.invalidateQueries({ queryKey: ["admin-campaign"] });
       qc.invalidateQueries({ queryKey: ["campaign"] });
       qc.invalidateQueries({ queryKey: ["campaign-stats"] });
+      qc.invalidateQueries({ queryKey: ["leaderboard"] });
     },
     onError: (e) => toast.error((e as Error).message),
   });
@@ -715,6 +717,25 @@ function CampaignAdmin() {
         <p className="text-xs text-muted-foreground">
           Enter any amount collected offline (cash, bank deposits, previous drives, etc.).
           This is <strong>added to the live online total</strong> on the fundraising thermometer.
+        </p>
+      </div>
+
+      {/* Leaderboard Amounts Visibility Toggle */}
+      <div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-4 space-y-2">
+        <label className="flex items-center gap-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={Boolean(form.show_leaderboard_amounts)}
+            onChange={(e) => setForm({ ...form, show_leaderboard_amounts: e.target.checked })}
+            className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary"
+          />
+          <span className="font-bold text-foreground text-sm">
+            Display Donated Amounts on Public Leaderboard
+          </span>
+        </label>
+        <p className="text-xs text-muted-foreground pl-8">
+          When <strong>checked</strong>, specific UGX totals are visible next to each donor on the Leaderboard.
+          When <strong>unchecked</strong>, donor ranks (Gold 🥇, Silver 🥈, Bronze 🥉) and names remain visible, but specific amounts are hidden for privacy.
         </p>
       </div>
 

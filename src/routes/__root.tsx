@@ -158,6 +158,7 @@ function SiteHeader() {
         {/* Desktop nav */}
         <nav className="site-header__nav" aria-label="Primary navigation">
           <NavLink to="/">Home</NavLink>
+          <NavLink to="/leaderboard">Leaderboard</NavLink>
           <NavLink to="/kits">Run kits</NavLink>
           <NavLink to="/donate">Donate</NavLink>
         </nav>
@@ -184,6 +185,7 @@ function SiteHeader() {
       <div className={`site-header__drawer${open ? " site-header__drawer--open" : ""}`} aria-hidden={!open}>
         <nav className="site-header__drawer-nav">
           <Link to="/" className="drawer-link">Home</Link>
+          <Link to="/leaderboard" className="drawer-link">🏆 Leaderboard</Link>
           <Link to="/kits" className="drawer-link">Run kits</Link>
           <Link to="/donate" className="drawer-link drawer-link--cta">Give now →</Link>
         </nav>
@@ -207,6 +209,7 @@ function SiteFooter() {
         <div>
           <div className="site-footer__col-title">Get involved</div>
           <ul className="site-footer__links">
+            <li><Link to="/leaderboard" className="site-footer__link">Donor Leaderboard</Link></li>
             <li><Link to="/donate" className="site-footer__link">Make a donation</Link></li>
             <li><Link to="/kits" className="site-footer__link">Buy a run kit</Link></li>
           </ul>

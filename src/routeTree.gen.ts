@@ -16,6 +16,7 @@ import { Route as ChooseRouteImport } from './routes/choose'
 import { Route as DonateRouteImport } from './routes/donate'
 import { Route as DonationsRouteImport } from './routes/donations'
 import { Route as KitsRouteImport } from './routes/kits'
+import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 
 const IndexRoute = IndexRouteImport.update({
@@ -52,6 +53,11 @@ const KitsRoute = KitsRouteImport.update({
   path: '/kits',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LeaderboardRoute = LeaderboardRouteImport.update({
+  id: '/leaderboard',
+  path: '/leaderboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/donate': typeof DonateRoute
   '/donations': typeof DonationsRoute
   '/kits': typeof KitsRoute
+  '/leaderboard': typeof LeaderboardRoute
   '/admin': typeof AuthenticatedAdminRoute
 }
 export interface FileRoutesByTo {
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/donate': typeof DonateRoute
   '/donations': typeof DonationsRoute
   '/kits': typeof KitsRoute
+  '/leaderboard': typeof LeaderboardRoute
   '/admin': typeof AuthenticatedAdminRoute
 }
 export interface FileRoutesById {
@@ -85,14 +93,30 @@ export interface FileRoutesById {
   '/donate': typeof DonateRoute
   '/donations': typeof DonationsRoute
   '/kits': typeof KitsRoute
+  '/leaderboard': typeof LeaderboardRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/auth' | '/choose' | '/donate' | '/donations' | '/kits' | '/admin'
+    | '/'
+    | '/auth'
+    | '/choose'
+    | '/donate'
+    | '/donations'
+    | '/kits'
+    | '/leaderboard'
+    | '/admin'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/choose' | '/donate' | '/donations' | '/kits' | '/admin'
+  to:
+    | '/'
+    | '/auth'
+    | '/choose'
+    | '/donate'
+    | '/donations'
+    | '/kits'
+    | '/leaderboard'
+    | '/admin'
   id:
     | '__root__'
     | '/'
@@ -102,6 +126,7 @@ export interface FileRouteTypes {
     | '/donate'
     | '/donations'
     | '/kits'
+    | '/leaderboard'
     | '/_authenticated/admin'
   fileRoutesById: FileRoutesById
 }
@@ -113,6 +138,7 @@ export interface RootRouteChildren {
   DonateRoute: typeof DonateRoute
   DonationsRoute: typeof DonationsRoute
   KitsRoute: typeof KitsRoute
+  LeaderboardRoute: typeof LeaderboardRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -166,6 +192,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof KitsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/leaderboard': {
+      id: '/leaderboard'
+      path: '/leaderboard'
+      fullPath: '/leaderboard'
+      preLoaderRoute: typeof LeaderboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin': {
       id: '/_authenticated/admin'
       path: '/admin'
@@ -195,6 +228,7 @@ const rootRouteChildren: RootRouteChildren = {
   DonateRoute: DonateRoute,
   DonationsRoute: DonationsRoute,
   KitsRoute: KitsRoute,
+  LeaderboardRoute: LeaderboardRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

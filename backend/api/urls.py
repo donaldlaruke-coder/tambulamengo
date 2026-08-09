@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     CampaignSettingsView, KitProductListView, CampaignStatsView,
-    LiveDonationsListView, InitiatePaymentView, PesapalIPNView,
+    LiveDonationsListView, LeaderboardView, InitiatePaymentView, PesapalIPNView,
     PesapalCallbackView, VerifyTransactionView, RegisterIPNView,
     YoIPNView,
     AdminLoginView, AdminLogoutView, AdminMeView,
@@ -15,6 +15,7 @@ urlpatterns = [
     path('kits/', KitProductListView.as_view(), name='kit-products'),
     path('stats/', CampaignStatsView.as_view(), name='campaign-stats'),
     path('donations/', LiveDonationsListView.as_view(), name='live-donations'),
+    path('leaderboard/', LeaderboardView.as_view(), name='leaderboard'),
     path('payments/initiate/', InitiatePaymentView.as_view(), name='initiate-payment'),
     path('payments/verify/', VerifyTransactionView.as_view(), name='verify-payment'),
     path('payments/yo-ipn/', YoIPNView.as_view(), name='yo-ipn'),

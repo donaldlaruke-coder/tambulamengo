@@ -147,3 +147,34 @@ export function useLiveDonations(limit = 25, typeFilter?: "donation" | "kit_purc
   }, [qc]);
   return q;
 }
+
+export type LeaderboardEntry = {
+  rank: number;
+  tier: "gold" | "silver" | "bronze" | "standard";
+  donor_name: string;
+  is_anonymous: boolean;
+  total_amount: number | null;
+  donations_count: number;
+  first_donated_at: string;
+  last_donated_at: string;
+};
+
+export type LeaderboardResponse = {
+  show_amounts: boolean;
+  total_donors: number;
+  leaderboard: LeaderboardEntry[];
+};
+
+export function useLeaderboard() {
+  const q = useQuery({
+    queryKey: ["leaderboard"],
+    refetchInterval: 3000,
+    queryFn: async (): Promise<LeaderboardResponse> => {
+      const url = `${getBackendUrl()}/api/leaderboard/`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch leaderboard");
+      return await res.json();
+    },
+  });
+  return q;
+}
