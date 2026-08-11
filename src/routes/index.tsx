@@ -275,7 +275,10 @@ function Index() {
               </div>
               <div className="lp-event-card__row">
                 <span className="lp-event-card__key">Run kit</span>
-                <span className="lp-event-card__val">{formatUGX(30_000)}</span>
+                <span className="lp-event-card__val flex flex-col items-end leading-tight">
+                  <span className="font-bold text-primary text-sm sm:text-base">UGX 27,000</span>
+                  <span className="text-xs text-muted-foreground line-through font-normal">UGX 30,000</span>
+                </span>
               </div>
               <div className="lp-event-card__row">
                 <span className="lp-event-card__key">Collection</span>
@@ -328,11 +331,11 @@ function Index() {
               {/* Revenue from kits */}
               <div className="lp-kits-stat-row">
                 <div className="lp-kits-stat">
-                  <div className="lp-kits-stat__val">{formatUGX(kitCount * 30_000)}</div>
+                  <div className="lp-kits-stat__val">{formatUGX(kitCount * 27_000)}</div>
                   <div className="lp-kits-stat__lbl">Kit revenue</div>
                 </div>
                 <div className="lp-kits-stat">
-                  <div className="lp-kits-stat__val">{formatUGX(raised - kitCount * 30_000 > 0 ? raised - kitCount * 30_000 : 0)}</div>
+                  <div className="lp-kits-stat__val">{formatUGX(raised - kitCount * 27_000 > 0 ? raised - kitCount * 27_000 : 0)}</div>
                   <div className="lp-kits-stat__lbl">Pure donations</div>
                 </div>
               </div>

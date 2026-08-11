@@ -40,23 +40,26 @@ function useAllowVideo() {
   return allow;
 }
 
-/** Lazy-mount a <video> only when scrolled into view and network is fine. */
+/** Lazy-mount a <video> with staggered delay to prevent network bandwidth spikes */
 function LazyVideo({
   src,
   poster,
   className,
   allow,
   priority = false,
+  delayMs = 0,
 }: {
   src: string;
   poster: string;
   className?: string;
   allow: boolean;
   priority?: boolean;
+  delayMs?: number;
 }) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [inView, setInView] = useState(priority);
+  const [readyToStream, setReadyToStream] = useState(false);
 
   useEffect(() => {
     if (priority) return;
@@ -81,6 +84,15 @@ function LazyVideo({
     return () => io.disconnect();
   }, [priority]);
 
+  // Stagger video mount after initial page paint is complete
+  useEffect(() => {
+    if (!inView || !allow) return;
+    const timer = setTimeout(() => {
+      setReadyToStream(true);
+    }, delayMs);
+    return () => clearTimeout(timer);
+  }, [inView, allow, delayMs]);
+
   // Pause when off-screen to save CPU / battery / data.
   useEffect(() => {
     const v = videoRef.current;
@@ -96,12 +108,12 @@ function LazyVideo({
     );
     io.observe(v);
     return () => io.disconnect();
-  }, [inView, allow]);
+  }, [readyToStream]);
 
-  const shouldMountVideo = inView && allow;
+  const shouldMountVideo = inView && allow && readyToStream;
 
   return (
-    <div ref={wrapRef} className={className} style={{ backgroundColor: "#3a0e15" }}>
+    <div ref={wrapRef} className={className} style={{ backgroundColor: "#3a0e15", transform: "translateZ(0)" }}>
       {shouldMountVideo ? (
         <video
           ref={videoRef}
@@ -112,7 +124,8 @@ function LazyVideo({
           loop
           playsInline
           preload="none"
-          className="h-full w-full object-cover"
+          className="h-full w-full object-cover transition-opacity duration-700"
+          style={{ willChange: "transform" }}
         />
       ) : (
         <img
@@ -139,6 +152,7 @@ export function HeroVideoWall() {
             poster={c.poster}
             allow={allow}
             priority={i === 0}
+            delayMs={i * 350}
             className={`relative h-full w-full overflow-hidden ${i === 4 ? "hidden md:block" : ""}`}
           />
         ))}
