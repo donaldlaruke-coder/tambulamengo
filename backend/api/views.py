@@ -61,13 +61,24 @@ class CampaignStatsView(APIView):
 
     def get(self, request):
         try:
-            txs = Transaction.objects.filter(status='confirmed')
-            online_raised = sum((t.amount or 0) for t in txs)
+            confirmed_txs = Transaction.objects.filter(status='confirmed')
+            
+            # Separate kit purchases from direct donations
+            kit_txs = confirmed_txs.filter(type='kit_purchase')
+            pure_donation_txs = confirmed_txs.filter(type='donation')
+
+            kit_revenue = sum((t.amount or 0) for t in kit_txs)
+            pure_donation_revenue = sum((t.amount or 0) for t in pure_donation_txs)
+            
+            kit_count = kit_txs.count()
+            pure_donation_count = pure_donation_txs.count()
+
+            online_raised = kit_revenue + pure_donation_revenue
             campaign = CampaignSettings.objects.filter(id=1).first()
             offline_amount = (campaign.offline_amount or 0) if campaign else 0
             total_raised = online_raised + offline_amount
-            donor_count = txs.exclude(donor_id=None).values('donor_id').distinct().count()
-            donation_count = txs.count()
+            donor_count = confirmed_txs.exclude(donor_id=None).values('donor_id').distinct().count()
+            donation_count = confirmed_txs.count()
             average_donation = int(online_raised / donation_count) if donation_count > 0 else 0
 
             return Response({
@@ -75,7 +86,11 @@ class CampaignStatsView(APIView):
                 "offline_amount": offline_amount,
                 "donor_count": donor_count,
                 "donation_count": donation_count,
-                "average_donation": average_donation
+                "average_donation": average_donation,
+                "kit_count": kit_count,
+                "pure_donation_count": pure_donation_count,
+                "kit_revenue": kit_revenue,
+                "pure_donation_revenue": pure_donation_revenue
             })
         except Exception as e:
             logger.error(f"Error in CampaignStatsView: {e}")
@@ -84,7 +99,11 @@ class CampaignStatsView(APIView):
                 "offline_amount": 0,
                 "donor_count": 0,
                 "donation_count": 0,
-                "average_donation": 0
+                "average_donation": 0,
+                "kit_count": 0,
+                "pure_donation_count": 0,
+                "kit_revenue": 0,
+                "pure_donation_revenue": 0
             })
 
 class LiveDonationsListView(APIView):

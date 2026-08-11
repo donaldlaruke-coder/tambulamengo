@@ -16,9 +16,14 @@ export type CampaignSettings = {
 
 export type CampaignStats = {
   total_raised: number;
+  offline_amount?: number;
   donor_count: number;
   donation_count: number;
   average_donation: number;
+  kit_count?: number;
+  pure_donation_count?: number;
+  kit_revenue?: number;
+  pure_donation_revenue?: number;
 };
 
 export type PublicTransaction = {

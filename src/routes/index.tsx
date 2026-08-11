@@ -135,8 +135,10 @@ function Index() {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
   const pct = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
-  const kitCount = kitFeed.data?.length ?? 0;
-  const donCount = donFeed.data?.length ?? 0;
+  const kitCount = stats.data?.kit_count ?? (kitFeed.data?.length ?? 0);
+  const donCount = stats.data?.pure_donation_count ?? (donFeed.data?.length ?? 0);
+  const kitRevenue = stats.data?.kit_revenue ?? (kitCount * 24_000);
+  const donationRevenue = stats.data?.pure_donation_revenue ?? Math.max(0, raised - kitRevenue);
 
   return (
     <div className="lp-root">
@@ -328,14 +330,14 @@ function Index() {
               <div className="lp-kits-detail__title">Breakdown</div>
               <KitBars kitCount={kitCount} donationCount={donCount} />
 
-              {/* Revenue from kits */}
+              {/* Revenue from kits & pure donations */}
               <div className="lp-kits-stat-row">
                 <div className="lp-kits-stat">
-                  <div className="lp-kits-stat__val">{formatUGX(kitCount * 27_000)}</div>
+                  <div className="lp-kits-stat__val">{formatUGX(kitRevenue)}</div>
                   <div className="lp-kits-stat__lbl">Kit revenue</div>
                 </div>
                 <div className="lp-kits-stat">
-                  <div className="lp-kits-stat__val">{formatUGX(raised - kitCount * 27_000 > 0 ? raised - kitCount * 27_000 : 0)}</div>
+                  <div className="lp-kits-stat__val">{formatUGX(donationRevenue)}</div>
                   <div className="lp-kits-stat__lbl">Pure donations</div>
                 </div>
               </div>
