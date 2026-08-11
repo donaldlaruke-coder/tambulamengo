@@ -272,6 +272,23 @@ class InitiatePaymentView(APIView):
             elif clean_name or clean_email:
                 donor = Donor.objects.create(name=clean_name, email=clean_email)
 
+            # If kit, resolve product and charge price from Django Admin
+            product = None
+            if is_kit:
+                try:
+                    product = KitProduct.objects.filter(id=kit_id).first()
+                except Exception:
+                    product = None
+
+                if not product:
+                    return Response({"detail": "Kit product not found"}, status=status.HTTP_404_NOT_FOUND)
+
+                kit_qty = int(qty) if (qty and int(qty) > 0) else 1
+                unit_charge_price = product.charge_price if (hasattr(product, 'charge_price') and product.charge_price) else product.price
+                charge_amount = unit_charge_price * kit_qty
+            else:
+                charge_amount = int(amount)
+
             # Create Transaction
             tx_type = 'kit_purchase' if is_kit else 'donation'
             db_payment_method = detect_uganda_payment_method(clean_phone, payment_mode)
@@ -279,7 +296,7 @@ class InitiatePaymentView(APIView):
             transaction_obj = Transaction.objects.create(
                 donor=donor,
                 type=tx_type,
-                amount=int(amount),
+                amount=charge_amount,
                 currency='UGX',
                 payment_method=db_payment_method,
                 status='pending',
@@ -290,23 +307,13 @@ class InitiatePaymentView(APIView):
             )
 
             # If kit, create KitOrderItem
-            if is_kit:
-                product = None
-                try:
-                    product = KitProduct.objects.filter(id=kit_id).first()
-                except Exception:
-                    product = None
-
-                if not product:
-                    return Response({"detail": "Kit product not found"}, status=status.HTTP_404_NOT_FOUND)
-
-                unit_price = int(amount) // int(qty) if (qty and int(qty) > 0) else product.price
+            if is_kit and product:
                 KitOrderItem.objects.create(
                     transaction=transaction_obj,
                     kit_product=product,
                     size=size,
-                    quantity=int(qty) if qty else 1,
-                    unit_price=unit_price
+                    quantity=kit_qty,
+                    unit_price=unit_charge_price
                 )
 
             if payment_mode == 'bank':
@@ -328,7 +335,7 @@ class InitiatePaymentView(APIView):
                     target_phone = clean_phone or (donor.phone if donor else "0770000000")
 
                     SURCHARGE_PERCENTAGE = 10.00
-                    surcharged_amount = int(round(float(amount) * (1 + SURCHARGE_PERCENTAGE / 100)))
+                    surcharged_amount = int(round(float(charge_amount) * (1 + SURCHARGE_PERCENTAGE / 100)))
 
                     yo_res = yo_payments.deposit_funds(
                         reference=ref,

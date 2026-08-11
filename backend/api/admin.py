@@ -7,9 +7,18 @@ class CampaignSettingsAdmin(admin.ModelAdmin):
 
 @admin.register(KitProduct)
 class KitProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'price', 'stock', 'active', 'created_at')
+    list_display = ('name', 'price', 'charge_price', 'stock', 'active', 'created_at')
     list_filter = ('active',)
     search_fields = ('name', 'description')
+    fieldsets = (
+        ('Product Details', {
+            'fields': ('name', 'description', 'size_options', 'stock', 'active')
+        }),
+        ('Pricing & Billing', {
+            'fields': ('price', 'charge_price'),
+            'description': '<b>Price:</b> Display price shown on public website.<br><b>Charge Price:</b> Actual backend base price charged via Yo! Payments (UGX 24,000 + 10% surge fee).'
+        }),
+    )
 
 class KitOrderItemInline(admin.TabularInline):
     model = KitOrderItem

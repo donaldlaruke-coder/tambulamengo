@@ -27,14 +27,15 @@ class KitProduct(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
-    price = models.BigIntegerField()
+    price = models.BigIntegerField(help_text='Display price shown on public website (UGX)')
+    charge_price = models.BigIntegerField(default=24000, help_text='Actual base price charged during payment collection (UGX) — configurable in Django Admin only')
     size_options = models.JSONField(default=list)  # Stored as JSON array: ["S", "M", "L", "XL"]
     stock = models.IntegerField(blank=True, null=True)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} (Display: {self.price} UGX | Charge: {self.charge_price} UGX)"
 
 class Donor(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
