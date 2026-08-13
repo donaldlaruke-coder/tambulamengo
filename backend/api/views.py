@@ -40,7 +40,7 @@ def generate_random_reference(prefix="TM"):
     part2 = ''.join(random.choice(chars) for _ in range(4))
     return f"{prefix}-{part1}-{part2}"
 
-class CampaignSettingsDetailView(generics.RetrieveAPIView):
+class CampaignSettingsView(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
     serializer_class = CampaignSettingsSerializer
 
