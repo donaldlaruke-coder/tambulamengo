@@ -47,6 +47,38 @@ function isH3SwallowedErrorBody(body: string): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const url = new URL(request.url);
+
+      // Proxy API, Admin, and Static requests directly to Django backend
+      if (
+        url.pathname.startsWith("/api/") ||
+        url.pathname.startsWith("/admin/") ||
+        url.pathname.startsWith("/static/") ||
+        url.pathname === "/api" ||
+        url.pathname === "/admin"
+      ) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const backendHost = (typeof process !== "undefined" && (process.env as any).INTERNAL_BACKEND_URL) || "http://backend:8000";
+        const normalizedPath = url.pathname.endsWith("/") || url.pathname.includes(".") ? url.pathname : `${url.pathname}/`;
+        const targetUrl = `${backendHost}${normalizedPath}${url.search}`;
+
+        const reqHeaders = new Headers(request.headers);
+        reqHeaders.set("X-Forwarded-Host", url.host);
+        reqHeaders.set("X-Forwarded-Proto", url.protocol.replace(":", ""));
+
+        try {
+          return await fetch(targetUrl, {
+            method: request.method,
+            headers: reqHeaders,
+            body: request.method !== "GET" && request.method !== "HEAD" ? request.body : undefined,
+            // @ts-ignore
+            duplex: "half",
+          });
+        } catch (fetchErr) {
+          console.error(`Failed to proxy to backend ${targetUrl}:`, fetchErr);
+        }
+      }
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
