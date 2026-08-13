@@ -2,6 +2,7 @@ import random
 import string
 import logging
 from datetime import datetime
+from django.db.models import Sum, Count, Q
 from django.conf import settings
 from django.utils import timezone
 from django.db import transaction as db_transaction
@@ -39,14 +40,26 @@ def generate_random_reference(prefix="TM"):
     part2 = ''.join(random.choice(chars) for _ in range(4))
     return f"{prefix}-{part1}-{part2}"
 
-class CampaignSettingsView(APIView):
+class CampaignSettingsDetailView(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
+    serializer_class = CampaignSettingsSerializer
 
-    def get(self, request):
-        campaign = CampaignSettings.objects.filter(id=1).first()
-        if not campaign:
-            return Response({"detail": "Campaign settings not initialized"}, status=status.HTTP_404_NOT_FOUND)
-        serializer = CampaignSettingsSerializer(campaign)
+    def get_object(self):
+        obj, created = CampaignSettings.objects.get_or_create(
+            id=1,
+            defaults={
+                'title': 'Tambula Mengo 2026',
+                'tagline': 'Akwana Akira Ayomba — 130 Years of Excellence',
+                'goal_amount': 18000000000,
+                'event_date': '2026-08-15',
+                'event_details': 'Join the grand walk starting from Mengo Senior School campus.'
+            }
+        )
+        return obj
+
+    def get(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
 class KitProductListView(generics.ListAPIView):
@@ -63,22 +76,28 @@ class CampaignStatsView(APIView):
         try:
             confirmed_txs = Transaction.objects.filter(status='confirmed')
             
-            # Separate kit purchases from direct donations
-            kit_txs = confirmed_txs.filter(type='kit_purchase')
-            pure_donation_txs = confirmed_txs.filter(type='donation')
+            # Use fast database aggregation
+            stats_agg = confirmed_txs.aggregate(
+                online_raised=Sum('amount'),
+                donation_count=Count('id'),
+                donor_count=Count('donor_id', distinct=True),
+                kit_revenue=Sum('amount', filter=Q(type='kit_purchase')),
+                kit_count=Count('id', filter=Q(type='kit_purchase')),
+                pure_donation_revenue=Sum('amount', filter=Q(type='donation')),
+                pure_donation_count=Count('id', filter=Q(type='donation')),
+            )
 
-            kit_revenue = sum((t.amount or 0) for t in kit_txs)
-            pure_donation_revenue = sum((t.amount or 0) for t in pure_donation_txs)
-            
-            kit_count = kit_txs.count()
-            pure_donation_count = pure_donation_txs.count()
+            online_raised = stats_agg['online_raised'] or 0
+            kit_revenue = stats_agg['kit_revenue'] or 0
+            pure_donation_revenue = stats_agg['pure_donation_revenue'] or 0
+            kit_count = stats_agg['kit_count'] or 0
+            pure_donation_count = stats_agg['pure_donation_count'] or 0
+            donor_count = stats_agg['donor_count'] or 0
+            donation_count = stats_agg['donation_count'] or 0
 
-            online_raised = kit_revenue + pure_donation_revenue
             campaign = CampaignSettings.objects.filter(id=1).first()
             offline_amount = (campaign.offline_amount or 0) if campaign else 0
             total_raised = online_raised + offline_amount
-            donor_count = confirmed_txs.exclude(donor_id=None).values('donor_id').distinct().count()
-            donation_count = confirmed_txs.count()
             average_donation = int(online_raised / donation_count) if donation_count > 0 else 0
 
             return Response({
@@ -111,7 +130,8 @@ class LiveDonationsListView(APIView):
 
     def get(self, request):
         try:
-            txs = Transaction.objects.filter(status='confirmed').order_by('-confirmed_at', '-created_at')[:25]
+            # select_related prevents N+1 database queries
+            txs = Transaction.objects.filter(status='confirmed').select_related('donor').order_by('-confirmed_at', '-created_at')[:20]
             result = []
             for t in txs:
                 real_name = (t.donor.name if t.donor else None) or t.donor_display_name
@@ -886,16 +906,16 @@ class AdminTransactionsView(APIView):
         if not request.user.is_authenticated or not request.user.is_staff:
             return Response({'detail': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
 
-        try:
-            # Safely check pending transactions without letting individual failures crash the request
-            pending_txs = Transaction.objects.filter(status='pending')
-            for p_tx in pending_txs[:10]:
-                try:
-                    p_tx = check_and_update_yo_transaction(p_tx)
-                    if p_tx.status == 'pending' and p_tx.provider_reference:
-                        check_and_update_pesapal_transaction(p_tx)
-                except Exception as p_err:
-                    logger.warning(f"Error checking pending tx {p_tx.internal_reference}: {p_err}")
+            # Check pending transactions only when explicitly requested (e.g. via sync button)
+            if request.query_params.get('sync_pending') == 'true':
+                pending_txs = Transaction.objects.filter(status='pending').order_by('-created_at')[:5]
+                for p_tx in pending_txs:
+                    try:
+                        p_tx = check_and_update_yo_transaction(p_tx)
+                        if p_tx.status == 'pending' and p_tx.provider_reference:
+                            check_and_update_pesapal_transaction(p_tx)
+                    except Exception as p_err:
+                        logger.warning(f"Error checking pending tx {p_tx.internal_reference}: {p_err}")
 
             txs = Transaction.objects.select_related('donor').order_by('-created_at')[:500]
             result = []

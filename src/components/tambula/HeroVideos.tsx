@@ -150,9 +150,8 @@ export function HeroVideoWall() {
             key={i}
             src={c.url}
             poster={c.poster}
-            allow={allow}
-            priority={i === 0}
-            delayMs={i * 350}
+            allow={allow && i === 0}
+            priority={true}
             className={`relative h-full w-full overflow-hidden ${i === 4 ? "hidden md:block" : ""}`}
           />
         ))}
