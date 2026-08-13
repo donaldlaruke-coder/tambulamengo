@@ -137,8 +137,8 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Security & Proxy Settings
-USE_X_FORWARDED_HOST = False
-USE_X_FORWARDED_PORT = False
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 CSRF_TRUSTED_ORIGINS = [
     'https://tambulamengo.work.gd',

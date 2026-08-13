@@ -48,6 +48,7 @@ function LazyVideo({
   allow,
   priority = false,
   delayMs = 0,
+  isPlayer = true,
 }: {
   src: string;
   poster: string;
@@ -55,6 +56,7 @@ function LazyVideo({
   allow: boolean;
   priority?: boolean;
   delayMs?: number;
+  isPlayer?: boolean;
 }) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -62,6 +64,7 @@ function LazyVideo({
   const [readyToStream, setReadyToStream] = useState(false);
 
   useEffect(() => {
+    if (!isPlayer) return;
     if (priority) return;
     const el = wrapRef.current;
     if (!el || typeof IntersectionObserver === "undefined") {
@@ -82,19 +85,21 @@ function LazyVideo({
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [priority]);
+  }, [priority, isPlayer]);
 
   // Stagger video mount after initial page paint is complete
   useEffect(() => {
+    if (!isPlayer) return;
     if (!inView || !allow) return;
     const timer = setTimeout(() => {
       setReadyToStream(true);
     }, delayMs);
     return () => clearTimeout(timer);
-  }, [inView, allow, delayMs]);
+  }, [inView, allow, delayMs, isPlayer]);
 
   // Pause when off-screen to save CPU / battery / data.
   useEffect(() => {
+    if (!isPlayer) return;
     const v = videoRef.current;
     if (!v) return;
     const io = new IntersectionObserver(
@@ -108,9 +113,9 @@ function LazyVideo({
     );
     io.observe(v);
     return () => io.disconnect();
-  }, [readyToStream]);
+  }, [readyToStream, isPlayer]);
 
-  const shouldMountVideo = inView && allow && readyToStream;
+  const shouldMountVideo = isPlayer && inView && allow && readyToStream;
 
   return (
     <div ref={wrapRef} className={className} style={{ backgroundColor: "#3a0e15", transform: "translateZ(0)" }}>
@@ -150,8 +155,10 @@ export function HeroVideoWall() {
             key={i}
             src={c.url}
             poster={c.poster}
-            allow={allow && i === 0}
-            priority={true}
+            allow={allow}
+            priority={i === 1}
+            isPlayer={i === 1}
+            delayMs={0}
             className={`relative h-full w-full overflow-hidden ${i === 4 ? "hidden md:block" : ""}`}
           />
         ))}
@@ -172,6 +179,7 @@ export function VideoStrip() {
             src={c.url}
             poster={c.poster}
             allow={allow}
+            isPlayer={false}
             className="absolute inset-0 h-full w-full"
           />
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-primary/90 to-transparent p-3">

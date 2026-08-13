@@ -1,11 +1,15 @@
 import random
 import string
 import logging
+import time
+from threading import Lock
 from datetime import datetime
-from django.db.models import Sum, Count, Q
 from django.conf import settings
 from django.utils import timezone
 from django.db import transaction as db_transaction
+from django.db.models import Sum
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from django.shortcuts import redirect
 from django.contrib.auth import authenticate, login, logout
 from django.utils.decorators import method_decorator
@@ -31,6 +35,38 @@ from . import egosms
 
 logger = logging.getLogger(__name__)
 
+class APICache:
+    _lock = Lock()
+    
+    _stats = None
+    _stats_time = 0
+    
+    _leaderboard = None
+    _leaderboard_time = 0
+    
+    _donations = None
+    _donations_time = 0
+
+    CACHE_DURATION = 3.0  # seconds
+
+    @classmethod
+    def clear(cls):
+        with cls._lock:
+            cls._stats = None
+            cls._stats_time = 0
+            cls._leaderboard = None
+            cls._leaderboard_time = 0
+            cls._donations = None
+            cls._donations_time = 0
+
+@receiver(post_save, sender=Transaction)
+def clear_api_cache_on_tx(sender, instance, **kwargs):
+    APICache.clear()
+
+@receiver(post_save, sender=CampaignSettings)
+def clear_api_cache_on_campaign(sender, instance, **kwargs):
+    APICache.clear()
+
 def generate_random_reference(prefix="TM"):
     """
     Generates a unique reference, e.g. TM-ABCD-1234
@@ -40,26 +76,14 @@ def generate_random_reference(prefix="TM"):
     part2 = ''.join(random.choice(chars) for _ in range(4))
     return f"{prefix}-{part1}-{part2}"
 
-class CampaignSettingsView(generics.RetrieveAPIView):
+class CampaignSettingsView(APIView):
     permission_classes = [AllowAny]
-    serializer_class = CampaignSettingsSerializer
 
-    def get_object(self):
-        obj, created = CampaignSettings.objects.get_or_create(
-            id=1,
-            defaults={
-                'title': 'Tambula Mengo 2026',
-                'tagline': 'Akwana Akira Ayomba — 130 Years of Excellence',
-                'goal_amount': 18000000000,
-                'event_date': '2026-08-15',
-                'event_details': 'Join the grand walk starting from Mengo Senior School campus.'
-            }
-        )
-        return obj
-
-    def get(self, request, *args, **kwargs):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance)
+    def get(self, request):
+        campaign = CampaignSettings.objects.filter(id=1).first()
+        if not campaign:
+            return Response({"detail": "Campaign settings not initialized"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = CampaignSettingsSerializer(campaign)
         return Response(serializer.data)
 
 class KitProductListView(generics.ListAPIView):
@@ -73,34 +97,29 @@ class CampaignStatsView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
+        now = time.time()
+        if APICache._stats is not None and (now - APICache._stats_time) < APICache.CACHE_DURATION:
+            return Response(APICache._stats)
+
         try:
             confirmed_txs = Transaction.objects.filter(status='confirmed')
             
-            # Use fast database aggregation
-            stats_agg = confirmed_txs.aggregate(
-                online_raised=Sum('amount'),
-                donation_count=Count('id'),
-                donor_count=Count('donor_id', distinct=True),
-                kit_revenue=Sum('amount', filter=Q(type='kit_purchase')),
-                kit_count=Count('id', filter=Q(type='kit_purchase')),
-                pure_donation_revenue=Sum('amount', filter=Q(type='donation')),
-                pure_donation_count=Count('id', filter=Q(type='donation')),
-            )
+            # Separate kit purchases from direct donations using fast DB aggregations
+            kit_revenue = confirmed_txs.filter(type='kit_purchase').aggregate(total=Sum('amount'))['total'] or 0
+            pure_donation_revenue = confirmed_txs.filter(type='donation').aggregate(total=Sum('amount'))['total'] or 0
+            
+            kit_count = confirmed_txs.filter(type='kit_purchase').count()
+            pure_donation_count = confirmed_txs.filter(type='donation').count()
 
-            online_raised = stats_agg['online_raised'] or 0
-            kit_revenue = stats_agg['kit_revenue'] or 0
-            pure_donation_revenue = stats_agg['pure_donation_revenue'] or 0
-            kit_count = stats_agg['kit_count'] or 0
-            pure_donation_count = stats_agg['pure_donation_count'] or 0
-            donor_count = stats_agg['donor_count'] or 0
-            donation_count = stats_agg['donation_count'] or 0
-
+            online_raised = kit_revenue + pure_donation_revenue
             campaign = CampaignSettings.objects.filter(id=1).first()
             offline_amount = (campaign.offline_amount or 0) if campaign else 0
             total_raised = online_raised + offline_amount
+            donor_count = confirmed_txs.exclude(donor_id=None).values('donor_id').distinct().count()
+            donation_count = confirmed_txs.count()
             average_donation = int(online_raised / donation_count) if donation_count > 0 else 0
 
-            return Response({
+            data = {
                 "total_raised": total_raised,
                 "offline_amount": offline_amount,
                 "donor_count": donor_count,
@@ -110,7 +129,13 @@ class CampaignStatsView(APIView):
                 "pure_donation_count": pure_donation_count,
                 "kit_revenue": kit_revenue,
                 "pure_donation_revenue": pure_donation_revenue
-            })
+            }
+
+            with APICache._lock:
+                APICache._stats = data
+                APICache._stats_time = now
+
+            return Response(data)
         except Exception as e:
             logger.error(f"Error in CampaignStatsView: {e}")
             return Response({
@@ -129,9 +154,12 @@ class LiveDonationsListView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
+        now = time.time()
+        if APICache._donations is not None and (now - APICache._donations_time) < APICache.CACHE_DURATION:
+            return Response(APICache._donations)
+
         try:
-            # select_related prevents N+1 database queries
-            txs = Transaction.objects.filter(status='confirmed').select_related('donor').order_by('-confirmed_at', '-created_at')[:20]
+            txs = Transaction.objects.filter(status='confirmed').order_by('-confirmed_at', '-created_at')[:25]
             result = []
             for t in txs:
                 real_name = (t.donor.name if t.donor else None) or t.donor_display_name
@@ -152,6 +180,11 @@ class LiveDonationsListView(APIView):
                     "created_at": str(t.created_at),
                     "confirmed_at": str(t.confirmed_at) if t.confirmed_at else str(t.created_at)
                 })
+
+            with APICache._lock:
+                APICache._donations = result
+                APICache._donations_time = now
+
             return Response(result)
         except Exception as e:
             logger.error(f"Error in LiveDonationsListView: {e}")
@@ -161,6 +194,10 @@ class LeaderboardView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
+        now = time.time()
+        if APICache._leaderboard is not None and (now - APICache._leaderboard_time) < APICache.CACHE_DURATION:
+            return Response(APICache._leaderboard)
+
         try:
             campaign = CampaignSettings.objects.filter(id=1).first()
             show_amounts = campaign.show_leaderboard_amounts if (campaign and campaign.show_leaderboard_amounts is not None) else True
@@ -229,11 +266,17 @@ class LeaderboardView(APIView):
                     "last_donated_at": item["last_donated_at"]
                 })
 
-            return Response({
+            data = {
                 "show_amounts": show_amounts,
                 "total_donors": len(results),
                 "leaderboard": results
-            })
+            }
+
+            with APICache._lock:
+                APICache._leaderboard = data
+                APICache._leaderboard_time = now
+
+            return Response(data)
         except Exception as e:
             logger.error(f"Error in LeaderboardView: {e}", exc_info=True)
             return Response({
@@ -906,16 +949,16 @@ class AdminTransactionsView(APIView):
         if not request.user.is_authenticated or not request.user.is_staff:
             return Response({'detail': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
 
-            # Check pending transactions only when explicitly requested (e.g. via sync button)
-            if request.query_params.get('sync_pending') == 'true':
-                pending_txs = Transaction.objects.filter(status='pending').order_by('-created_at')[:5]
-                for p_tx in pending_txs:
-                    try:
-                        p_tx = check_and_update_yo_transaction(p_tx)
-                        if p_tx.status == 'pending' and p_tx.provider_reference:
-                            check_and_update_pesapal_transaction(p_tx)
-                    except Exception as p_err:
-                        logger.warning(f"Error checking pending tx {p_tx.internal_reference}: {p_err}")
+        try:
+            # Safely check pending transactions without letting individual failures crash the request
+            pending_txs = Transaction.objects.filter(status='pending')
+            for p_tx in pending_txs[:10]:
+                try:
+                    p_tx = check_and_update_yo_transaction(p_tx)
+                    if p_tx.status == 'pending' and p_tx.provider_reference:
+                        check_and_update_pesapal_transaction(p_tx)
+                except Exception as p_err:
+                    logger.warning(f"Error checking pending tx {p_tx.internal_reference}: {p_err}")
 
             txs = Transaction.objects.select_related('donor').order_by('-created_at')[:500]
             result = []
