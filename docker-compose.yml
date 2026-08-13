@@ -33,6 +33,8 @@ services:
       - "traefik.http.routers.tambula-frontend.entrypoints=websecure"
       - "traefik.http.routers.tambula-frontend.tls=true"
       - "traefik.http.routers.tambula-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.tambula-frontend.middlewares=tambula-compress"
+      - "traefik.http.middlewares.tambula-compress.compress=true"
       - "traefik.http.services.tambula-frontend.loadbalancer.server.port=3000"
     networks:
       - proxy
@@ -71,6 +73,7 @@ services:
       - "traefik.http.routers.tambula-backend.entrypoints=websecure"
       - "traefik.http.routers.tambula-backend.tls=true"
       - "traefik.http.routers.tambula-backend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.tambula-backend.middlewares=tambula-compress"
       - "traefik.http.services.tambula-backend.loadbalancer.server.port=8000"
     networks:
       - proxy
