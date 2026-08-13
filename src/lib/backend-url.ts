@@ -19,10 +19,6 @@ export function getBackendUrl(): string {
       "http://backend:8000"
     );
   }
-  // Client-side (browser): use relative URL so API requests route to the main domain /api/
-  const envUrl = import.meta.env.VITE_BACKEND_URL;
-  if (envUrl && !envUrl.includes("api.tambulamengo.work.gd")) {
-    return envUrl;
-  }
-  return "";
+  // Client-side (browser): use VITE_BACKEND_URL if explicitly set, else default to live server https://api.tambulamengo.work.gd
+  return import.meta.env.VITE_BACKEND_URL || "https://api.tambulamengo.work.gd";
 }

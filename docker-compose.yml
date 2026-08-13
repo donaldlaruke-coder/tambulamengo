@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
       args:
         - VITE_USE_DJANGO=${VITE_USE_DJANGO:-true}
-        - VITE_BACKEND_URL=${VITE_BACKEND_URL:-}
+        - VITE_BACKEND_URL=${VITE_BACKEND_URL:-https://api.tambulamengo.work.gd}
         - VITE_SUPABASE_PROJECT_ID=${VITE_SUPABASE_PROJECT_ID}
         - VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY}
         - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
@@ -15,7 +15,7 @@ services:
       - PORT=3000
       - NODE_ENV=production
       - VITE_USE_DJANGO=${VITE_USE_DJANGO:-true}
-      - VITE_BACKEND_URL=${VITE_BACKEND_URL:-}
+      - VITE_BACKEND_URL=${VITE_BACKEND_URL:-https://api.tambulamengo.work.gd}
       - FRONTEND_URL=${FRONTEND_URL:-https://tambulamengo.work.gd}
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-}
@@ -33,7 +33,6 @@ services:
       - "traefik.http.routers.tambula-frontend.entrypoints=websecure"
       - "traefik.http.routers.tambula-frontend.tls=true"
       - "traefik.http.routers.tambula-frontend.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.tambula-frontend.priority=10"
       - "traefik.http.services.tambula-frontend.loadbalancer.server.port=3000"
     networks:
       - proxy
@@ -68,11 +67,10 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-      - "traefik.http.routers.tambula-backend.rule=Host(`api.tambulamengo.work.gd`) || (Host(`tambulamengo.work.gd`) && (PathPrefix(`/api`) || PathPrefix(`/admin`) || PathPrefix(`/static`)))"
+      - "traefik.http.routers.tambula-backend.rule=Host(`api.tambulamengo.work.gd`) || (Host(`tambulamengo.work.gd`) && PathPrefix(`/api`))"
       - "traefik.http.routers.tambula-backend.entrypoints=websecure"
       - "traefik.http.routers.tambula-backend.tls=true"
       - "traefik.http.routers.tambula-backend.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.tambula-backend.priority=100"
       - "traefik.http.services.tambula-backend.loadbalancer.server.port=8000"
     networks:
       - proxy
