@@ -62,9 +62,16 @@ export default {
         const normalizedPath = url.pathname.endsWith("/") || url.pathname.includes(".") ? url.pathname : `${url.pathname}/`;
         const targetUrl = `${backendHost}${normalizedPath}${url.search}`;
 
-        const reqHeaders = new Headers(request.headers);
-        reqHeaders.set("X-Forwarded-Host", url.host);
-        reqHeaders.set("X-Forwarded-Proto", url.protocol.replace(":", ""));
+        const reqHeaders: Record<string, string> = {
+          "Accept": request.headers.get("accept") || "application/json",
+          "X-Forwarded-Proto": "https",
+        };
+        const contentType = request.headers.get("content-type");
+        if (contentType) reqHeaders["Content-Type"] = contentType;
+        const auth = request.headers.get("authorization");
+        if (auth) reqHeaders["Authorization"] = auth;
+        const cookie = request.headers.get("cookie");
+        if (cookie) reqHeaders["Cookie"] = cookie;
 
         try {
           return await fetch(targetUrl, {
